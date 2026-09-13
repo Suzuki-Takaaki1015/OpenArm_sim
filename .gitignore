@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# OpenArm local state
+.openarm/
+.venv/
+*.tar.gz

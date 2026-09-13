@@ -1,0 +1,5 @@
+# Use with: docker compose -f compose.yaml -f compose.dev.yaml up --build
+services:
+  sim:
+    volumes:
+      - ./app:/opt/openarm/app:ro

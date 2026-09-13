@@ -1,0 +1,14 @@
+name: openarm
+services:
+  sim:
+    image: ${OPENARM_IMAGE:-openarm-sim:0.2.0}
+    build: .
+    init: true
+    ports:
+      - "127.0.0.1:6080:6080"
+    shm_size: 512mb
+    environment:
+      ROS_DOMAIN_ID: "42"
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      LIBGL_ALWAYS_SOFTWARE: "1"
+    stop_grace_period: 10s
