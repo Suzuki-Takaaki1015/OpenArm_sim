@@ -36,3 +36,14 @@ Docker Engine 29.1.3 + Compose v2。イメージ openarm-sim:0.3.0。
 表示先と描画方式を分離。表示判定4件と既存5件、合計9テストがUbuntuで成功。
 SSHのGUIなし判定と、デスクトップ上のCPU OpenGL接続を確認。
 ホストユーザーで起動する際は作業ディレクトリを/tmpとしてMuJoCoの権限問題を解消。
+
+## 開発操作と任意の障害物
+
+- install_shell.pyを2回実行し、bashrcの登録重複がないことを確認。
+- ホストのoa、oa-ros、oa-scene、oa-logsを確認。
+- start.py --headlessでGUIなし起動、全5コントローラーactive。
+- oa-scene status/on/status/off/statusで初期off、2物体追加、削除を確認。
+- MuJoCoの実接触を使うtest_obstacles.pyが成功。
+  有効化後の接触発生、無効化後の接触消失、重なる有効化の拒否を確認。
+- 固定の作業台と障害物。自由物体の持ち上げ・把持成功は未実装、未検証。
+- GUI表示の目視確認は今回省略。VM負荷を抑えてサービスと物理接触を検証。

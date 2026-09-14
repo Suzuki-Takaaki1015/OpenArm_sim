@@ -8,7 +8,9 @@ import rclpy
 from rclpy.node import Node
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import JointState
-from std_srvs.srv import Trigger
+from std_srvs.srv import Trigger, SetBool
+import mujoco
+from scene_objects import OBJECTS
 
 from physics import Simulation
 
@@ -17,11 +19,55 @@ class Bridge(Node):
     def __init__(self):
         super().__init__('openarm_mujoco')
         self.sim = Simulation()
+        self.obstacles_enabled = False
+        self.create_service(SetBool, '/openarm/set_obstacles', self.set_obstacles)
         self.states = self.create_publisher(JointState, '/mujoco/joint_states', 10)
         self.clock = self.create_publisher(Clock, '/clock', 10)
         self.create_subscription(JointState, '/mujoco/joint_commands', self.command, 10)
         # Restart the stack to reset time; controller trajectories must reset together.
         self.get_logger().info('Ready: /mujoco/joint_commands; ' + ', '.join(self.sim.names))
+
+    def set_obstacles(self, request, response):
+        if request.data == self.obstacles_enabled:
+            response.success = True
+            response.message = 'on' if request.data else 'off'
+            return response
+        m, d = self.sim.model, self.sim.data
+        ids = [mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, obj['id']) for obj in OBJECTS]
+        if any(g < 0 for g in ids):
+            response.success = False
+            response.message = 'Obstacle geometry missing; rebuild the image'
+            return response
+        def refresh_contact_masks():
+            for bid in set(int(m.geom_bodyid[g]) for g in ids):
+                mask = affinity = 0
+                for g in range(m.ngeom):
+                    if m.geom_bodyid[g] == bid:
+                        mask |= int(m.geom_contype[g])
+                        affinity |= int(m.geom_conaffinity[g])
+                m.body_contype[bid] = mask
+                m.body_conaffinity[bid] = affinity
+        # Before enabling, reject obstacles intersecting the current robot pose.
+        for g, obj in zip(ids, OBJECTS):
+            m.geom_contype[g] = m.geom_conaffinity[g] = int(request.data)
+        refresh_contact_masks()
+        mujoco.mj_forward(m, d)
+        intersecting = request.data and any(
+            (int(c.geom1) in ids) != (int(c.geom2) in ids)
+            and c.dist < -0.001 for c in d.contact)
+        if intersecting:
+            for g in ids: m.geom_contype[g] = m.geom_conaffinity[g] = 0
+            refresh_contact_masks()
+            mujoco.mj_forward(m, d)
+            response.success = False
+            response.message = 'Obstacle overlaps robot; move robot away before enabling'
+            return response
+        for g, obj in zip(ids, OBJECTS):
+            m.geom_rgba[g] = obj['rgba'] if request.data else [0,0,0,0]
+        self.obstacles_enabled = request.data
+        response.success = True
+        response.message = 'on' if request.data else 'off'
+        return response
 
     def command(self, msg):
         try:

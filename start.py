@@ -137,6 +137,9 @@ def select_backend(args, system, endpoint):
     return 'cpu', [], reason
 
 def select_presentation(args, system, endpoint):
+    if getattr(args, 'headless', False):
+        if args.gpu: raise RuntimeError('--headless has no GPU viewer; remove --gpu')
+        return 'headless', [], 'No GUI; ROS actions and services remain available'
     if args.display == 'browser':
         if args.gpu:
             raise RuntimeError('--gpu requires native display; cannot combine with --display browser')
@@ -201,6 +204,7 @@ def main():
     modes.add_argument('--cpu',action='store_true');modes.add_argument('--gpu',action='store_true')
     p.add_argument('--rebuild',action='store_true');p.add_argument('--check',action='store_true',help='check/build/probe without starting')
     p.add_argument('--stop',action='store_true');p.add_argument('--logs',action='store_true')
+    p.add_argument('--headless', action='store_true', help='ROS and MuJoCo physics without any GUI')
     p.add_argument('--display', choices=['auto','native','browser'], default='auto', help='auto: desktop windows when available; otherwise browser')
     p.add_argument('--port',type=int,default=6080)
     args=p.parse_args()
@@ -231,7 +235,7 @@ def main():
         raise RuntimeError('Use a local Docker context. Remote Docker endpoints are not supported by this launcher.')
     build_image(args.rebuild)
     mode, opts, reason=select_presentation(args,system,endpoint)
-    status('OK',f'Display: {"browser" if mode == "cpu" else "host desktop"}; rendering: {"GPU" if mode == "gpu" else "CPU"} - {reason}')
+    status('OK',f'Display: {"none" if mode == "headless" else "browser" if mode == "cpu" else "host desktop"}; rendering: {"GPU" if mode == "gpu" else "CPU"} - {reason}')
     status('OK','Physics: MuJoCo CPU; GPU selection accelerates rendering only')
     (STATE/'environment.json').write_text(json.dumps({'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
     if args.check: return
@@ -241,19 +245,19 @@ def main():
     def launch(selected, device_options):
         options=['run','-d','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
         if selected=='cpu':options+=['-p',f'127.0.0.1:{args.port}:6080','-e','LIBGL_ALWAYS_SOFTWARE=1']
-        docker(*options,IMAGE,'web' if selected=='cpu' else 'native')
+        docker(*options,IMAGE,'headless' if selected=='headless' else 'web' if selected=='cpu' else 'native')
         wait_ready(selected,args.port)
     try:
         launch(mode,opts)
     except (RuntimeError,subprocess.TimeoutExpired):
-        if mode=='cpu' or args.gpu or args.display=='native': raise
+        if mode in ('cpu','headless') or args.gpu or args.display=='native': raise
         status('WARN','Native display startup failed; retrying with CPU browser rendering')
         log=docker('logs',NAME,check=False)
         (STATE/'gpu-startup.log').write_text(log.stdout,encoding='utf-8')
         docker('rm','-f',NAME)
         mode='cpu'; reason='Native display startup failed; see .openarm/gpu-startup.log'; launch(mode,[])
     (STATE/'environment.json').write_text(json.dumps({'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
-    status('OK', 'Native RViz + MuJoCo windows opened' if mode!='cpu' else f'Open http://localhost:{args.port}/vnc.html?autoconnect=true&resize=scale')
+    status('OK', 'Headless simulation ready; use oa or oa-ros' if mode=='headless' else 'Native RViz + MuJoCo windows opened' if mode!='cpu' else f'Open http://localhost:{args.port}/vnc.html?autoconnect=true&resize=scale')
     print('Stop: python3 start.py --stop\nLogs: python3 start.py --logs',flush=True)
 
 if __name__=='__main__':

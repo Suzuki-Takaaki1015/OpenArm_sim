@@ -94,3 +94,36 @@ MuJoCo: 3D画面内で左ドラッグすると周囲を回転。右ドラッグ�
 RViz: Move Cameraを選び、3D画面内を左ドラッグで回転、中央ドラッグで平行移動、ホイールで拡大縮小。
 ロボット目標のマーカーを動かす時はInteractへ切り替えます。
 回転はモデルの周囲を水平に一周できます。Orbitは上下方向には制限があり、自由なロール回転とは異なります。
+
+## 開発用ショートカットと障害物
+
+Ubuntu/Bashで一度だけ実行:
+
+```bash
+python3 install_shell.py
+source ~/.bashrc
+```
+
+既存.bashrcはバックアップし、管理用のsource行だけを追加します。繰り返し実行しても重複しません。
+
+```bash
+oa                         # ROS環境付きのコンテナ内Bash（exitで戻る）
+oa-ros node list            # ホストからROSコマンド
+oa-ros control list_controllers
+oa-scene on                # 固定作業台・障害物を有効化
+oa-scene off               # 表示と接触、MoveItの衝突物体を削除
+oa-scene status            # MoveIt登録状態
+oa-logs                    # コンテナのログ
+```
+
+スタックを起動してから使用します。障害物は初期状態でoff、再起動でもoffになります。
+切り替えはロボットを停止させ、軌道実行中でないときに行ってください。
+MuJoCoとMoveItへの更新は別サービスなので完全に同時ではありません。
+エラー時は状態を確認してから動かしてください。ロボットに重なる追加は拒否します。
+物体のworld座標・寸法・色はdocker/app/scene_objects.pyに一元管理し、編集後はstart.pyで再ビルドします。
+これは固定障害物です。持ち上げる物体、接触による保持、MoveItのattach/detach、
+把持姿勢生成はまだ含まれません。物理把持の完成を意味しません。
+既存のユーザー作成MoveItオブジェクトは変更せず、openarm_demo_の2物体のみ操作します。
+
+GUI負荷を避けて開発する場合は `python3 start.py --headless` で起動します。
+この場合もoa、oa-ros、oa-sceneとROSアクションは利用できます。画面は開きません。

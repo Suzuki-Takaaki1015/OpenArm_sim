@@ -140,3 +140,12 @@ for cls,x,width in [('rviz2',0,1200),('MuJoCo',1200,720)]:
     E.SubElement(size,'{'+ns['o']+'}height').text='1040'
     E.SubElement(rule,'{'+ns['o']+'}maximized').text='no'
 ob.write(OUT/'openbox.xml',encoding='unicode')
+
+# Optional fixed development obstacles; initially hidden with contact disabled.
+from scene_objects import OBJECTS
+scene = E.parse(SRC.parent/'simulation_scene.xml')
+for obj in OBJECTS:
+    E.SubElement(scene.find('worldbody'), 'geom', name=obj['id'], type='box',
+                 pos=vec(obj['position']), size=vec([v/2 for v in obj['size']]),
+                 rgba='0 0 0 0', contype='0', conaffinity='0', friction='1 0.005 0.0001')
+scene.write(SRC.parent/'simulation_scene.xml', encoding='unicode')
