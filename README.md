@@ -27,9 +27,9 @@ Docker・GPUドライバー・管理者設定を勝手にインストール/変�
 - Linux + ローカルDocker Engine + X11/XWaylandセッションで、NVIDIAまたはMesaのGPUを候補にします。
 - 同じコンテナ・ユーザー・デバイス・X認証でglxinfoを実行し、ハードウェアOpenGLを確認します。
 - GPU時はホストのデスクトップにRVizとMuJoCoのウィンドウを表示します。
-- GPUが使えない場合はCPUソフトウェア描画＋noVNCへ自動切り替えます。
-- CPU時は http://localhost:6080/vnc.html?autoconnect=true&resize=scale を開きます。
-- SSH端末にDISPLAYがなければCPUを選びます。GPU表示はLinuxデスクトップの端末から実行してください。
+- GPUが使えない場合はCPU描画へ切り替えます。表示先はGPUとは独立して判定します。
+- ブラウザー表示時は http://localhost:6080/vnc.html?autoconnect=true&resize=scale を開きます。
+- SSH端末にDISPLAYがなければブラウザー表示を選びます。ホストGUI表示はLinuxデスクトップの端末から実行してください。
 - NVIDIAはホストドライバーとNVIDIA Container Toolkitが必要です。未設定時はCPUへ切り替えます。
 - GPUは描画を高速化します。今回のMuJoCo物理演算はCPUです（MJXへの変更ではありません）。
 - Windows Docker Desktop、Intel MacはCPUブラウザー表示を使います。この構成ではWSL2のCUDA対応だけでOpenGL利用可能とは判定しません。
@@ -68,3 +68,22 @@ RVizでPlanning Groupを選択し、手先を動かしてPlan、Executeで実行
 公式資料: [Docker](https://docs.docker.com/engine/install/ubuntu/)、
 [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)、
 [Docker Desktop GPUの範囲](https://docs.docker.com/desktop/features/gpu/)。
+
+## 表示先の自動判定
+
+通常は `python3 start.py` だけで判定します。
+Desktop版で利用可能なX11/XWaylandセッションがあれば、GPUの有無に関係なく
+ホストにRViz・MuJoCoのウィンドウを表示します。GPUが使えなければCPU描画です。
+Server版やGUIセッションのないSSH環境ではnoVNCブラウザー表示を使用します。
+インストール名ではなく、実際のGUI接続・認証・OpenGL利用可否で判定するため、
+Server版へ後からGUIを追加した場合にも対応します。
+
+```bash
+python3 start.py --cpu                  # CPU指定。DesktopならホストGUI
+python3 start.py --display browser      # ブラウザー表示を指定
+python3 start.py --display native       # ホストGUI必須。利用不可なら理由を表示して停止
+```
+
+自動モードでGUI接続に失敗した場合はブラウザーへ切り替えます。
+`--display native` と `--gpu` は利用不可でも黙って切り替えません。
+GPU描画とブラウザー表示の同時指定は未対応です。

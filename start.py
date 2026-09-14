@@ -79,21 +79,27 @@ def build_image(rebuild):
             raise RuntimeError(f'Build failed; see {logfile}\n{logfile.read_text(encoding="utf-8", errors="replace")[-3000:]}')
     status('OK', f'Image ready: {IMAGE} (MuJoCo venv: /opt/venv)')
 
-def gpu_candidates(system, endpoint):
+def desktop_options(system, endpoint):
     # Native GPU rendering needs an accessible host X display. Xvfb is software-only.
     if system != 'Linux' or not endpoint.startswith('unix://'):
-        return [], 'Native Linux + local Docker socket required for this GPU display backend'
+        return None, 'No supported local Linux desktop connection'
     display = os.environ.get('DISPLAY', '')
     if not display.startswith(':') or not Path('/tmp/.X11-unix').is_dir():
-        return [], 'No local X11/XWayland display; use a desktop terminal for GPU rendering'
+        return None, 'No active local X11/XWayland session (Server/headless or SSH)'
     auth = Path(os.environ.get('XAUTHORITY', str(Path.home()/'.Xauthority')))
     if not auth.is_file() or not os.access(auth, os.R_OK):
-        return [], 'No readable Xauthority cookie; CPU browser mode selected (no xhost changes)'
-    shared = ['--user', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/tmp',
+        return None, 'Desktop authentication unavailable; browser fallback'
+    shared = ['--user', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/tmp', '--workdir', '/tmp',
               '-e', f'DISPLAY={display}', '-e', 'XAUTHORITY=/tmp/openarm.xauth',
               '-e', 'LIBGL_ALWAYS_SOFTWARE=0', '-e', 'QT_X11_NO_MITSHM=1',
               '-v', '/tmp/.X11-unix:/tmp/.X11-unix:ro',
               '-v', f'{auth}:/tmp/openarm.xauth:ro']
+    return shared, 'Local desktop session detected'
+
+def gpu_candidates(system, endpoint):
+    shared, reason = desktop_options(system, endpoint)
+    if shared is None:
+        return [], reason
     choices = []
     if shutil.which('nvidia-smi'):
         choices.append(('NVIDIA', ['--gpus', 'all', '-e', 'NVIDIA_DRIVER_CAPABILITIES=graphics,display,utility', *shared]))
@@ -129,6 +135,31 @@ def select_backend(args, system, endpoint):
     if args.gpu:
         raise RuntimeError(f'GPU requested but not usable: {reason}')
     return 'cpu', [], reason
+
+def select_presentation(args, system, endpoint):
+    if args.display == 'browser':
+        if args.gpu:
+            raise RuntimeError('--gpu requires native display; cannot combine with --display browser')
+        return 'cpu', [], 'Browser display explicitly requested'
+    mode, opts, reason = select_backend(args, system, endpoint)
+    if mode == 'gpu':
+        return mode, opts, reason
+    shared, desktop_reason = desktop_options(system, endpoint)
+    if shared is not None:
+        shared = ['LIBGL_ALWAYS_SOFTWARE=1' if item == 'LIBGL_ALWAYS_SOFTWARE=0' else item for item in shared]
+        status('CHECK', 'Desktop session: testing native CPU OpenGL display')
+        try:
+            probe = docker('run', '--rm', *shared, IMAGE, 'glxinfo', '-B', timeout=30, check=False)
+            (STATE/'desktop-probe.log').write_text(probe.stdout, encoding='utf-8')
+            if probe.returncode == 0 and 'OpenGL renderer string:' in probe.stdout:
+                return 'native-cpu', shared, 'Desktop display available; CPU rendering'
+            desktop_reason = 'Native desktop OpenGL test failed; see .openarm/desktop-probe.log'
+        except subprocess.TimeoutExpired:
+            desktop_reason = 'Native desktop OpenGL test timed out'
+    if args.display == 'native':
+        raise RuntimeError(desktop_reason)
+    return 'cpu', [], desktop_reason
+
 
 def existing():
     r=docker('inspect',NAME,check=False)
@@ -170,6 +201,7 @@ def main():
     modes.add_argument('--cpu',action='store_true');modes.add_argument('--gpu',action='store_true')
     p.add_argument('--rebuild',action='store_true');p.add_argument('--check',action='store_true',help='check/build/probe without starting')
     p.add_argument('--stop',action='store_true');p.add_argument('--logs',action='store_true')
+    p.add_argument('--display', choices=['auto','native','browser'], default='auto', help='auto: desktop windows when available; otherwise browser')
     p.add_argument('--port',type=int,default=6080)
     args=p.parse_args()
     if not 1<=args.port<=65535: p.error('port must be 1..65535')
@@ -198,8 +230,8 @@ def main():
     if not endpoint.startswith(('unix://','npipe://')):
         raise RuntimeError('Use a local Docker context. Remote Docker endpoints are not supported by this launcher.')
     build_image(args.rebuild)
-    mode, opts, reason=select_backend(args,system,endpoint)
-    status('OK' if mode=='gpu' else 'WARN',f'Rendering: {mode.upper()} - {reason}')
+    mode, opts, reason=select_presentation(args,system,endpoint)
+    status('OK',f'Display: {"browser" if mode == "cpu" else "host desktop"}; rendering: {"GPU" if mode == "gpu" else "CPU"} - {reason}')
     status('OK','Physics: MuJoCo CPU; GPU selection accelerates rendering only')
     (STATE/'environment.json').write_text(json.dumps({'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
     if args.check: return
@@ -209,19 +241,19 @@ def main():
     def launch(selected, device_options):
         options=['run','-d','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
         if selected=='cpu':options+=['-p',f'127.0.0.1:{args.port}:6080','-e','LIBGL_ALWAYS_SOFTWARE=1']
-        docker(*options,IMAGE,'native' if selected=='gpu' else 'web')
+        docker(*options,IMAGE,'web' if selected=='cpu' else 'native')
         wait_ready(selected,args.port)
     try:
         launch(mode,opts)
     except (RuntimeError,subprocess.TimeoutExpired):
-        if mode!='gpu' or args.gpu: raise
-        status('WARN','GPU application startup failed; retrying with CPU browser rendering')
+        if mode=='cpu' or args.gpu or args.display=='native': raise
+        status('WARN','Native display startup failed; retrying with CPU browser rendering')
         log=docker('logs',NAME,check=False)
         (STATE/'gpu-startup.log').write_text(log.stdout,encoding='utf-8')
         docker('rm','-f',NAME)
-        mode='cpu'; reason='GPU application startup failed; see .openarm/gpu-startup.log'; launch(mode,[])
+        mode='cpu'; reason='Native display startup failed; see .openarm/gpu-startup.log'; launch(mode,[])
     (STATE/'environment.json').write_text(json.dumps({'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
-    status('OK', 'Native RViz + MuJoCo windows opened' if mode=='gpu' else f'Open http://localhost:{args.port}/vnc.html?autoconnect=true&resize=scale')
+    status('OK', 'Native RViz + MuJoCo windows opened' if mode!='cpu' else f'Open http://localhost:{args.port}/vnc.html?autoconnect=true&resize=scale')
     print('Stop: python3 start.py --stop\nLogs: python3 start.py --logs',flush=True)
 
 if __name__=='__main__':

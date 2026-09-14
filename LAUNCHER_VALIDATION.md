@@ -30,3 +30,9 @@ Docker Engine 29.1.3 + Compose v2。イメージ openarm-sim:0.3.0。
 - 物理演算はCPU。GPUはOpenGL描画用で、MJX/CUDA物理演算は含まない。
 - Python、Docker、Compose、GPUドライバーなどのホスト側前提条件は利用者が用意する。
 - 外部PCや新しいOSへの対応は追加の動作確認が必要。
+
+## ホストGUI対応の追加検証
+
+表示先と描画方式を分離。表示判定4件と既存5件、合計9テストがUbuntuで成功。
+SSHのGUIなし判定と、デスクトップ上のCPU OpenGL接続を確認。
+ホストユーザーで起動する際は作業ディレクトリを/tmpとしてMuJoCoの権限問題を解消。
