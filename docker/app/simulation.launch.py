@@ -24,10 +24,11 @@ def generate_launch_description():
     move=Node(package='moveit_ros_move_group',executable='move_group',parameters=[config],output='screen')
     spawn=Node(package='controller_manager',executable='spawner',arguments=['joint_state_broadcaster','left_arm_controller','right_arm_controller','left_gripper_controller','right_gripper_controller','--controller-manager-timeout','120','--switch-timeout','120','--activate-as-group'],output='screen')
     rviz=Node(package='rviz2',executable='rviz2',arguments=['-d','/opt/openarm/app/openarm.rviz'],parameters=[config],condition=IfCondition(gui),output='screen')
+    panel=ExecuteProcess(cmd=['python','/opt/openarm/app/scene_panel.py'],condition=IfCondition(gui),output='screen')
     ready=ExecuteProcess(cmd=['python','/opt/openarm/app/wait_ready.py'],output='screen')
     def after_ready(event, context):
         return [spawn] if event.returncode == 0 else [EmitEvent(event=Shutdown(reason='MuJoCo startup failed'))]
-    actions=[DeclareLaunchArgument('gui',default_value='false'),sim,rsp,cm,move,rviz,ready,RegisterEventHandler(OnProcessExit(target_action=ready,on_exit=after_ready))]
+    actions=[DeclareLaunchArgument('gui',default_value='false'),sim,rsp,cm,move,rviz,panel,ready,RegisterEventHandler(OnProcessExit(target_action=ready,on_exit=after_ready))]
     for critical in [sim,cm,move]:
         actions.append(RegisterEventHandler(OnProcessExit(target_action=critical,on_exit=[EmitEvent(event=Shutdown(reason='Required node exited'))])))
     return LaunchDescription(actions)
