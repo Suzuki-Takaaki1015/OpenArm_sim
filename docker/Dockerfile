@@ -27,7 +27,7 @@ COPY vendor/MODEL_REVISION /opt/openarm/models/MODEL_REVISION
 COPY app /opt/openarm/app
 COPY scripts /opt/openarm/scripts
 RUN OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml python /opt/openarm/app/generate_config.py
-COPY README.md ENVIRONMENT.md THIRD_PARTY.md /opt/openarm/
+COPY README.md ENVIRONMENT.md CAMERA_MOUNT.md THIRD_PARTY.md /opt/openarm/
 RUN sed -i 's/\r$//' /opt/openarm/scripts/*.sh \
     && chmod +x /opt/openarm/scripts/*.sh \
     && useradd --create-home --uid 10001 sim \

@@ -14,7 +14,8 @@ ITEMS={
                  {'type':'cylinder','size':[0.015,0.008],'pos':[0,0,0.102],'rgba':[0.1,0.25,0.65,1]}]}}
 
 def camera_config():
-    return json.loads(Path(__file__).with_name('camera_config.json').read_text())
+    from camera_mount import config
+    return config()
 
 def rotation(rpy):
     r,p,y=rpy;cr,sr=math.cos(r),math.sin(r);cp,sp=math.cos(p),math.sin(p);cy,sy=math.cos(y),math.sin(y)
@@ -33,6 +34,6 @@ def add_assets(scene_path):
             E.SubElement(body,'geom',name=f'{obj["id"]}_{i}',type=g['type'],size=vec(g['size']),pos=vec(g['pos']),rgba='0 0 0 0',contype='0',conaffinity='0',condim='4',friction='1 0.01 0.001')
     cfg=camera_config();R=rotation(cfg['rpy_rad']);xyaxes=vec(list(-R[:,1])+list(R[:,2]))
     for channel in ('color','depth'):
-        E.SubElement(world,'camera',name='d435_'+channel,pos=vec(cfg['position_m']),xyaxes=xyaxes,fovy=str(cfg[channel]['vertical_fov_deg']))
-    E.SubElement(world,'geom',name='d435_housing',type='box',pos=vec(cfg['position_m']),size='0.0125 0.045 0.0125',rgba='0.2 0.2 0.22 1',contype='0',conaffinity='0')
+        offset=R@np.array(cfg['color_offset_m']) if channel=='color' else np.zeros(3)
+        E.SubElement(world,'camera',name='d435_'+channel,pos=vec(np.array(cfg['position_m'])+offset),xyaxes=xyaxes,fovy=str(cfg[channel]['vertical_fov_deg']))
     tree.write(scene_path,encoding='unicode')

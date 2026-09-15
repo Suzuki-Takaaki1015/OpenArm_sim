@@ -10,6 +10,8 @@ import yaml
 OUT = Path(os.environ.get('OPENARM_CONFIG', '/opt/openarm/config'))
 SRC = Path(os.environ['OPENARM_MODEL'])
 OUT.mkdir(parents=True, exist_ok=True)
+from camera_mount import prepare_robot
+prepare_robot(SRC)
 m = mujoco.MjModel.from_xml_path(str(SRC))
 x = E.parse(SRC).getroot()
 robot = E.Element('robot', name='openarm')
@@ -141,7 +143,7 @@ for cls,x,width in [('rviz2',0,1200),('MuJoCo',1200,720)]:
     E.SubElement(rule,'{'+ns['o']+'}maximized').text='no'
 ob.write(OUT/'openbox.xml',encoding='unicode')
 
-# Optional fixed development obstacles; initially hidden with contact disabled.
+# Optional worktable; initially hidden with contact disabled.
 from scene_objects import OBJECTS
 scene = E.parse(SRC.parent/'simulation_scene.xml')
 for obj in OBJECTS:

@@ -39,6 +39,7 @@ class Camera(Node):
         t.transform.rotation.x=sr*cp*cy-cr*sp*sy;t.transform.rotation.y=cr*sp*cy+sr*cp*sy;t.transform.rotation.z=cr*cp*sy-sr*sp*cy;t.transform.rotation.w=cr*cp*cy+sr*sp*sy;out.append(t)
         for name in ('color','depth'):
             t=TransformStamped();t.header.frame_id='camera_link';t.child_frame_id=f'camera_{name}_optical_frame'
+            if name=='color':t.transform.translation.x,t.transform.translation.y,t.transform.translation.z=cfg['color_offset_m']
             t.transform.rotation.x=-.5;t.transform.rotation.y=.5;t.transform.rotation.z=-.5;t.transform.rotation.w=.5;out.append(t)
         self.tf.sendTransform(out)
     def initialize(self):
@@ -48,7 +49,7 @@ class Camera(Node):
         self.model.vis.global_.offheight=max(self.cfg[k]['height'] for k in ('color','depth'))
         for stream in ('color','depth'):
             c=self.cfg[stream];self.renderers[stream]=mujoco.Renderer(self.model,height=c['height'],width=c['width'])
-        self.get_logger().info('RGB-D rendering enabled; ideal optics, provisional mount transform')
+        self.get_logger().info('RGB-D rendering enabled; ideal optics, official bracket with project-defined M6 height')
     def publish(self,stream,pixels,snapshot):
         c=self.cfg['depth' if stream=='depth' else 'color'];w,h=c['width'],c['height']
         frame='camera_depth_optical_frame' if stream=='depth' else 'camera_color_optical_frame'

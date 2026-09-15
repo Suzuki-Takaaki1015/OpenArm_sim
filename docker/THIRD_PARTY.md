@@ -13,3 +13,6 @@ Ubuntu package copyright files remain in /usr/share/doc inside the image;
 Python package license metadata remains in the virtual environment.
 Installed versions are recorded in /opt/openarm/os-packages.txt and
 /opt/openarm/python-packages.txt.
+
+## Camera assets
+OpenArm official D435 bracket: CERN-OHL-S-2.0; original STEP and license in app/camera_assets. RealSense D435 mesh and nominal URDF: Apache-2.0; originals, commit and license in app/camera_assets. See app/camera_assets/SOURCES.md and CAMERA_MOUNT.md.

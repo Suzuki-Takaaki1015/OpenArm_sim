@@ -1,4 +1,4 @@
-"""Toggle fixed demo obstacles in MuJoCo and MoveIt; run while robot is stopped."""
+"""Toggle the worktable in MuJoCo and MoveIt; run while robot is stopped."""
 import argparse
 import json
 import rclpy
@@ -81,7 +81,7 @@ def main():
             raise
         after=present(node)
         if (enabled and not ids.issubset(after)) or (not enabled and ids & after):raise RuntimeError('Scene verification failed')
-        print(f'Obstacles {args.mode}: MuJoCo visibility/contact + MoveIt collision scene updated')
+        print(f'Worktable {args.mode}: MuJoCo visibility/contact + MoveIt collision scene updated')
     finally:node.destroy_node();rclpy.shutdown()
 
 if __name__=='__main__':

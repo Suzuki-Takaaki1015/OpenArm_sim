@@ -6,13 +6,7 @@
 公式CAD: https://github.com/enactic/openarm_hardware/releases/tag/1.1.0
 D435仕様: https://www.realsenseai.com/products/stereo-depth-camera-d435/
 
-**取り付け座標は未校正です。実機と一致する座標ではありません。**
-公式胸部マウント単品CADは確認できましたが、取得したロボット組立STEPから
-カメラの組立変換を確定できていません。現状は胸部付近の仮配置です。
-`docker/app/camera_config.json` の position_m / rpy_rad を、実機計測または組立CADで
-得た値へ置き換えて再ビルドしてください。parent_frameは固定ベースの
-openarm_body_link0（このモデルではworldと同じ姿勢・原点）を使用します。
-`calibration_verified` は検証するまでfalseのままにします。
+公式STEPの取付面・ネジ穴に基づく配置です。M6高さ740 mmは本環境で定めた組立基準です。実機も同じ高さに取り付けてください。[取付寸法図と導出](CAMERA_MOUNT.md)を参照。個体校正は別途必要です。
 
 初期OFF。GUIの「配信開始」で有効化。既定2 fps、color 320x180、depth 424x240。
 低負荷設定なので実機のストリームモードをそのまま再現するものではありません。
@@ -35,7 +29,7 @@ RGB垂直FOV42度、depth58度を基準とした理想ピンホール投影で�
 画像からの物体認識、位置推定、把持姿勢生成はメンバー側で実装してください。
 
 理想RGB-Dであり、RealSenseデバイス/USB/librealsenseのエミュレーターではありません。
-RGB/depth光学中心を同位置に置く近似で、実機のレンズ間オフセット・歪み・
+RGB/depthには公式URDFの公称15 mmオフセットを使用し、個体ごとの外部校正・歪み・
 IR照射・ステレオマッチング・欠測ノイズ・透明PETの深度誤差は再現しません。
 カメラは物理計算と別プロセスで描画しますが、CPU/メモリーは消費します。
 停止ボタンは配信を停止します。ロード済み描画モデルのメモリーはプロセス終了まで保持します。
