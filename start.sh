@@ -6,7 +6,7 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 say() { printf '[%-5s] %s\n' "$1" "$2"; }
 fail() { say FAIL "$*" >&2; exit 1; }
 if [[ ${1:-} == --help ]]; then
-    printf 'Usage: bash start.sh [--setup-only | launcher options]\nInstalls missing Ubuntu 24.04 dependencies, then launches OpenArm.\nLauncher options: --cpu --gpu --headless --display auto|native|browser --check --rebuild --stop --logs\n'
+    printf 'Usage: bash start.sh [--offline | --setup-only | launcher options]\nInstalls missing Ubuntu 24.04 dependencies, then launches OpenArm.\nLauncher options: --cpu --gpu --headless --display auto|native|browser --check --rebuild --stop --logs\n'
     exit 0
 fi
 [[ $(uname -s) == Linux ]] || fail 'Automatic installation supports Ubuntu 24.04 only.'
@@ -15,6 +15,35 @@ fi
 [[ $(dpkg --print-architecture) == amd64 ]] || fail 'This simulation release supports amd64 only.'
 [[ $EUID != 0 ]] || fail 'Run bash start.sh as your normal user, without sudo. The script requests sudo when needed.'
 say OK 'Ubuntu 24.04 / amd64'
+
+# Probe HTTPS without requiring Python, pip or extra host packages.
+# --offline is useful when network access is intentionally disabled.
+forward=()
+for arg in "$@"; do
+    if [[ $arg == --offline ]]; then export OPENARM_OFFLINE=1
+    else forward+=("$arg"); fi
+ done
+set -- "${forward[@]}"
+if [[ ${OPENARM_OFFLINE:-0} != 1 ]]; then
+    say CHECK 'Checking internet connectivity (up to 8 seconds)'
+    online=0
+    for endpoint in https://archive.ubuntu.com/ubuntu/ https://registry-1.docker.io/v2/; do
+        if command -v curl >/dev/null; then
+            # HTTP 401 at the registry still proves DNS/TLS connectivity.
+            if curl --silent --output /dev/null --connect-timeout 2 --max-time 4 "$endpoint"; then online=1; break; fi
+        else
+            host=${endpoint#https://}; host=${host%%/*}
+            if timeout 4 /usr/bin/bash -c 'exec 3<>/dev/tcp/"$1"/443' _ "$host" 2>/dev/null; then online=1; break; fi
+        fi
+    done
+    [[ $online == 1 ]] || export OPENARM_OFFLINE=1
+fi
+if [[ ${OPENARM_OFFLINE:-0} == 1 ]]; then
+    say WARN 'Offline: skipping package updates, installations and Docker image builds'
+else
+    say OK 'Internet connectivity detected'
+fi
+
 installed() { [[ $(dpkg-query -W -f='${Status}' "$1" 2>/dev/null || true) == 'install ok installed' ]]; }
 packages=()
 for pkg in python3 python3-venv git ca-certificates; do
@@ -29,6 +58,7 @@ elif ! docker compose version >/dev/null 2>&1; then
     fi
 fi
 if ((${#packages[@]})); then
+    [[ ${OPENARM_OFFLINE:-0} != 1 ]] || fail "Offline and required host packages are missing: ${packages[*]}. Connect to the internet and rerun. Simulation was not started."
     say CHECK "Installing missing host packages: ${packages[*]}"
     say INFO 'sudo is needed for package installation and Docker setup.'
     sudo -v
@@ -41,7 +71,7 @@ if ((${#packages[@]})); then
     fi
     sudo apt-get -o DPkg::Lock::Timeout=120 install -y "${packages[@]}"
 fi
-python3 -c 'import venv' || fail 'Python venv is unavailable.'
+python3 -c 'import venv' >/dev/null 2>&1 || fail 'Python venv is unavailable.'
 say OK 'Python, venv, Git and Docker Compose installed'
 if ! docker info >/dev/null 2>&1; then
     endpoint=${DOCKER_HOST:-$(docker context inspect --format '{{.Endpoints.docker.Host}}')}

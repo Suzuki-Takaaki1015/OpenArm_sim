@@ -62,6 +62,15 @@ def build_image(rebuild):
     label = None
     if found.returncode == 0:
         label = (json.loads(found.stdout)[0]['Config'].get('Labels') or {}).get('org.openarm.source')
+    if os.environ.get('OPENARM_OFFLINE') == '1':
+        if found.returncode:
+            raise RuntimeError(f'Offline and required Docker image {IMAGE} is missing. Connect to the internet and run start.sh once. Simulation was not started.')
+        if rebuild:
+            raise RuntimeError('Cannot rebuild offline. Remove --rebuild to use the local image, or connect to the internet.')
+        if label != digest:
+            status('WARN', 'Offline: using the existing image; local source changes will be built when online')
+        status('OK', f'Offline image ready: {IMAGE}; no build or download')
+        return
     if rebuild or label != digest:
         status('CHECK', 'Building Ubuntu 24.04 / ROS 2 / container venv (first run downloads dependencies)')
         logfile = STATE / 'build.log'
