@@ -9,6 +9,13 @@ class Simulation:
         self.model = mujoco.MjModel.from_xml_path(path or os.environ.get('OPENARM_SCENE', os.environ['OPENARM_MODEL']))
         self.model.opt.timestep = 0.002
         self.model.opt.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
+        # Official OpenArm v2 uses this contact setup to prevent jaw creep.
+        self.model.opt.cone = mujoco.mjtCone.mjCONE_ELLIPTIC
+        self.model.opt.impratio = 10
+        for g in range(self.model.ngeom):
+            body = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY, self.model.geom_bodyid[g]) or ''
+            if 'finger' in body and self.model.geom_contype[g]:
+                self.model.geom_condim[g] = 4
         self.data = mujoco.MjData(self.model)
         m = self.model
         self.joint_ids = np.array([j for j in range(m.njnt) if m.jnt_type[j] in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE) and (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT,j) or '').startswith('openarm_')],dtype=int)
@@ -21,28 +28,29 @@ class Simulation:
         if (np.any(m.actuator_trntype != mujoco.mjtTrn.mjTRN_JOINT)
                 or not np.allclose(m.actuator_gear[:, 0], 1)):
             raise ValueError('Unsupported actuator transmission')
-        self.position_act = m.actuator_biastype == mujoco.mjtBias.mjBIAS_AFFINE
-        self.kp = np.array([250.0 if 'finger' in n else 80.0 for n in self.names])
-        self.kd = np.array([5.0 if 'finger' in n else 8.0 for n in self.names])
+        # SI units: arm servo Nm/rad; finger servo N/m. The simplified MJCF
+        # has slide joints, not the physical motor/linkage transmission.
+        self.kp = np.array([1500.0 if 'finger' in n else 80.0 for n in self.names])
+        self.kd = np.array([10.0 if 'finger' in n else 8.0 for n in self.names])
         self.speed = np.array([0.02 if 'finger' in n else 1.0 for n in self.names])
-        # Put PD feedback in MuJoCo actuators so implicitfast integrates velocity
-        # feedback implicitly, instead of an unstable explicit torque at light joints.
-        self.motor_act = ~self.position_act.copy()
+        self.position_act = np.ones(m.nu, dtype=bool)
+        self.motor_act = np.ones(m.nu, dtype=bool)
         for a, j in enumerate(self.act_joint):
-            if self.motor_act[a]:
-                m.actuator_gaintype[a] = mujoco.mjtGain.mjGAIN_FIXED
-                m.actuator_biastype[a] = mujoco.mjtBias.mjBIAS_AFFINE
-                m.actuator_gainprm[a, 0] = self.kp[j]
-                m.actuator_biasprm[a, :3] = [0, -self.kp[j], -self.kd[j]]
-                # Original ctrl range represented torque. Keep that physical limit
-                # on actuator force while ctrl now represents a position target.
-                limits = []
-                if m.actuator_forcelimited[a]: limits.append(m.actuator_forcerange[a].copy())
-                if m.actuator_ctrllimited[a]: limits.append(m.actuator_ctrlrange[a].copy())
-                if not limits: limits = [np.array([-20., 20.])]
-                m.actuator_forcelimited[a] = 1
-                m.actuator_forcerange[a] = [max(v[0] for v in limits), min(v[1] for v in limits)]
-                m.actuator_ctrllimited[a] = 0
+            finger = 'finger' in self.names[j]
+            if finger:
+                # Conservative 15 N/jaw; not the upstream 333 N nor Nm.
+                force = 15.0
+            else:
+                # Official DM8009P / DM4340 / DM4310 peak motor limits.
+                number = int(self.names[j].rsplit('joint', 1)[1])
+                force = 40.0 if number <= 2 else 27.0 if number <= 4 else 7.0
+            m.actuator_gaintype[a] = mujoco.mjtGain.mjGAIN_FIXED
+            m.actuator_biastype[a] = mujoco.mjtBias.mjBIAS_AFFINE
+            m.actuator_gainprm[a, 0] = self.kp[j]
+            m.actuator_biasprm[a, :3] = [0, -self.kp[j], -self.kd[j]]
+            m.actuator_forcelimited[a] = 1
+            m.actuator_forcerange[a] = [-force, force]
+            m.actuator_ctrllimited[a] = 0
         self.reset()
 
     def reset(self):

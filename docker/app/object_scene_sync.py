@@ -3,6 +3,7 @@ import json
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_srvs.srv import SetBool
 from geometry_msgs.msg import Pose
 from moveit_msgs.msg import PlanningScene,CollisionObject,PlanningSceneComponents
 from moveit_msgs.srv import GetPlanningScene
@@ -14,9 +15,12 @@ class SceneSync(Node):
         super().__init__('openarm_object_scene_sync')
         self.pub=self.create_publisher(PlanningScene,'/planning_scene',10)
         self.create_subscription(String,'/openarm/sim_state',self.update,2)
-        self.attached=set();self.pending=None;self.sent=set()
+        self.attached=set();self.pending=None;self.sent=set();self.paused=False
+        self.create_service(SetBool,'/openarm/objects/pause_sync',self.pause_sync)
         self.client=self.create_client(GetPlanningScene,'/get_planning_scene')
         self.create_timer(.5,self.refresh_attached)
+    def pause_sync(self,request,response):
+        self.paused=request.data;response.success=True;response.message='Object synchronization paused' if self.paused else 'Object synchronization resumed';return response
     def refresh_attached(self):
         if not self.client.service_is_ready() or (self.pending and not self.pending.done()):return
         req=GetPlanningScene.Request();req.components.components=PlanningSceneComponents.ROBOT_STATE_ATTACHED_OBJECTS
@@ -26,6 +30,7 @@ class SceneSync(Node):
             except Exception as exc:self.get_logger().warning(str(exc))
         self.pending.add_done_callback(done)
     def update(self,msg):
+        if self.paused:return
         snapshot=json.loads(msg.data);scene=PlanningScene();scene.is_diff=True;scene.robot_state.is_diff=True
         for key,obj in ITEMS.items():
             if obj['id'] in self.attached:continue

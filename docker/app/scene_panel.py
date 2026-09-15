@@ -5,18 +5,18 @@ import tkinter as tk
 from tkinter import ttk
 class ScenePanel:
     def __init__(self,root):
-        self.root=root;self.queue=queue.Queue();self.busy=False;self.buttons=[]
+        self.root=root;self.queue=queue.Queue();self.busy=False;self.buttons=[];self.demo_proc=None;self.demo_stopping=False
         root.title('OpenArm - シーン・カメラ');root.geometry('700x930');root.minsize(650,900)
         style=ttk.Style();style.configure('TLabel',font=('Noto Sans CJK JP',10));style.configure('TButton',font=('Noto Sans CJK JP',10),padding=7)
         frame=ttk.Frame(root,padding=18);frame.pack(fill='both',expand=True)
         ttk.Label(frame,text='シーンとD435カメラ',font=('Noto Sans CJK JP',17,'bold')).pack(anchor='w')
         self.group(frame,'作業台',[('表示','on'),('非表示','off')])
-        self.group(frame,'把持対象：直方体（100 g）',[('配置','box-on'),('削除','box-off'),('ランダム再配置','box-reposition')])
+        self.group(frame,'把持対象：直方体（100 g）',[('配置','box-on'),('削除','box-off'),('ランダム再配置','box-reposition'),('左箱を削除','box_left-off')])
         self.group(frame,'把持対象：500 mLボトル（満水相当・近似剛体）',[('配置','bottle-on'),('削除','bottle-off'),('ランダム再配置','bottle-reposition')])
         manual=ttk.LabelFrame(frame,text='位置を指定して配置（world座標）',padding=8);manual.pack(fill='x',pady=(10,0))
         row=ttk.Frame(manual);row.pack(fill='x')
         self.place_kind=tk.StringVar(value='直方体')
-        ttk.Combobox(row,textvariable=self.place_kind,values=['直方体','ボトル'],state='readonly',width=8).pack(side='left')
+        ttk.Combobox(row,textvariable=self.place_kind,values=['直方体','左直方体','ボトル'],state='readonly',width=8).pack(side='left')
         self.place_values={}
         for label,key,value,lo,hi,inc in [('X m','x',.36,.29,.71,.01),('Y m','y',-.20,-.31,.31,.01),('向き °','yaw',0,-180,180,5)]:
             ttk.Label(row,text=label).pack(side='left',padx=(6,2))
@@ -35,11 +35,15 @@ class ScenePanel:
         ttk.Label(recovery,text='腕・物体・カメラを初期状態へ戻し、MoveItと制御も再起動します。',wraplength=560).pack(anchor='w')
         row=ttk.Frame(frame);row.pack(fill='x')
         self.button(row,'状態を更新','status')
+        self.button(row,'右手把持デモ','grasp-demo')
+        self.button(row,'両腕把持デモ','bimanual-demo')
+        self.demo_stop=ttk.Button(row,text='デモ停止',command=self.stop_demo);self.demo_stop.pack(side='left');self.demo_stop.state(['disabled'])
         self.state=tk.StringVar(value='ROSへ接続中…')
         ttk.Label(frame,textvariable=self.state,wraplength=560).pack(anchor='w',pady=(10,3))
         self.detail=tk.StringVar(value='')
         ttk.Label(frame,textvariable=self.detail,wraplength=560,font=('Noto Sans CJK JP',9)).pack(anchor='w')
-        ttk.Label(frame,text='配置・削除は腕を止めてから。配置時は机も自動で有効になります。\n物体を削除してから机を非表示にしてください。\n認識・自動把持プログラムは含みません。',wraplength=560).pack(anchor='w',pady=(12,0))
+        ttk.Label(frame,text='配置・削除は腕を止めてから。配置時は机も自動で有効になります。\n物体を削除してから机を非表示にしてください。\n把持デモは初期姿勢から実行。机と直方体を準備し、ボトルを削除します。',wraplength=560).pack(anchor='w',pady=(12,0))
+        root.protocol('WM_DELETE_WINDOW',self.close)
         root.after(100,self.poll);root.after(300,lambda:self.request('status'))
     def preset(self,y):
         for key,value in [('x',.36),('y',y),('yaw',0)]:self.place_values[key].set(str(value))
@@ -49,10 +53,18 @@ class ScenePanel:
             if not all(math.isfinite(v) for v in values.values()):raise ValueError()
         except ValueError:
             self.state.set('X・Y・向きに有限の数値を入力してください');return
-        key='box' if self.place_kind.get()=='直方体' else 'bottle'
+        key={'直方体':'box','左直方体':'box_left','ボトル':'bottle'}[self.place_kind.get()]
         extra=[part for k,v in values.items() for part in ['--'+k,str(v)]]
         self.request(key+'-place',extra)
+    def close(self):
+        self.stop_demo();self.root.destroy()
+    def stop_demo(self):
+        if self.demo_proc is not None and self.demo_proc.poll() is None and not self.demo_stopping:
+            self.demo_stopping=True
+            self.demo_proc.terminate();self.state.set("デモを停止中…")
     def restart(self):
+        if self.demo_proc is not None and self.demo_proc.poll() is None:
+            self.stop_demo();self.root.after(1000,self.restart);return
         # This control does not depend on ROS responding and stays available
         # while scene service calls are waiting.
         try:
@@ -77,9 +89,19 @@ class ScenePanel:
         if self.busy:return
         self.busy=True
         for b in self.buttons:b.state(['disabled'])
+        if action in ('grasp-demo','bimanual-demo'):
+            self.demo_stopping=False;self.demo_stop.state(['!disabled'])
         self.state.set('処理中…');self.detail.set('初期化中は応答まで時間がかかる場合があります。')
         def worker():
             try:
+                if action in ('grasp-demo','bimanual-demo'):
+                    lines=[]
+                    with subprocess.Popen(['/opt/openarm/scripts/entrypoint.sh','python','-u','-m','openarm_demos.grasp_demo' if action=='grasp-demo' else 'openarm_demos.bimanual_demo'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True) as proc:
+                        self.demo_proc=proc
+                        for line in proc.stdout:
+                            lines.append(line.strip());self.queue.put(('demo-progress',True,line.strip()))
+                        code=proc.wait()
+                    self.queue.put(('demo-stopped' if code==130 else action,code in (0,130),'\n'.join(lines[-3:])));return
                 r=subprocess.run([sys.executable,str(Path(__file__).with_name('scene_cli.py')),action,*(extra or [])],capture_output=True,text=True,timeout=180)
                 self.queue.put((action,r.returncode==0,(r.stdout+r.stderr).strip()))
             except Exception as exc:self.queue.put((action,False,str(exc)))
@@ -88,9 +110,17 @@ class ScenePanel:
         try:action,ok,text=self.queue.get_nowait()
         except queue.Empty:pass
         else:
+            if action=='demo-progress':
+                self.state.set('把持デモを実行中…');self.detail.set(text)
+                self.root.after(100,self.poll);return
+            self.demo_stop.state(['disabled'])
             self.busy=False
             for b in self.buttons:b.state(['!disabled'])
             if not ok:self.state.set('操作できませんでした');self.detail.set(text[-300:])
+            elif action=='demo-stopped':
+                self.state.set('デモを停止しました');self.detail.set('再実行する場合はシミュレーションを再起動してください。')
+            elif action in ('grasp-demo','bimanual-demo'):
+                self.state.set('把持デモ完了');self.detail.set(text)
             elif action=='status':
                 try:
                     d=json.loads(text);s=d['scene'];c=d['camera'];mark=lambda v:'ON' if v else 'OFF'

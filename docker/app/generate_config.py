@@ -43,7 +43,7 @@ def body(b,parent):
         jname=js[0].get('name'); j=mujoco.mj_name2id(m,mujoco.mjtObj.mjOBJ_JOINT,jname)
         assert np.allclose(m.jnt_pos[j],0), 'Nonzero joint anchor not implemented'
         finger='finger' in jname
-        effort=20 if finger else (40 if jname.endswith(('joint1','joint2')) else 27 if jname.endswith(('joint3','joint4')) else 7)
+        effort=15 if finger else (40 if jname.endswith(('joint1','joint2')) else 27 if jname.endswith(('joint3','joint4')) else 7)
         velocity=0.02 if finger else 1.0
         joint=E.SubElement(robot,'joint',name=jname,type='prismatic' if finger else 'revolute')
         E.SubElement(joint,'axis',xyz=vec(m.jnt_axis[j]))
@@ -112,6 +112,9 @@ for side in ('left','right'):
         moveit_controllers[ctl]={'type':'FollowJointTrajectory','action_ns':'follow_joint_trajectory','default':True,'joints':names}
         ompl[group]={'planner_configs':['RRTConnectkConfigDefault'],'longest_valid_segment_fraction':0.01}
 
+g=E.SubElement(semantic,'group',name='both_arms')
+for side in ('left','right'):E.SubElement(g,'group',name=side+'_arm')
+ompl['both_arms']={'planner_configs':['RRTConnectkConfigDefault'],'longest_valid_segment_fraction':0.005}
 E.indent(robot);E.indent(semantic)
 (OUT/'openarm.urdf').write_text(E.tostring(robot,encoding='unicode'))
 (OUT/'openarm.srdf').write_text(E.tostring(semantic,encoding='unicode'))

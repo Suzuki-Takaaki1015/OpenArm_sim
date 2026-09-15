@@ -121,3 +121,27 @@ world座標でXは前方、Yは左方向です。高さは机上へ自動調整�
 既に表示中の物体も移動できます。机外・アームや他物体との重なりは拒否し、元の位置を保持します。
 配置操作は腕を止めてから行ってください。プリセットは把持成功を保証するIK検証済み姿勢ではありません。
 MoveItの衝突物体も物理シミュレーションの位置へ同期します。
+
+
+## 直方体の把持デモ
+
+シミュレーション起動後、シーンGUIの「右手把持デモ」を押します。停止は「デモ停止」。端末からはリポジトリで `bash demo_grasp.sh` を実行できます。
+
+- 両腕が初期姿勢であることが必要です。動かした後はGUIの「シミュレーションを再起動」で戻してください。
+- デモは作業台を表示し、ボトルを削除し、100 gの直方体を決まった位置（world X=0.30 m、Y=-0.18 m）に配置します。実行中はRVizや別コードから腕・物体を操作しないでください。
+- 右指を開く → MoveItで接近 → 直線下降 → 指を閉じる → 持ち上げて保持 → 置き戻す → 初期姿勢へ戻る、の順で動きます。
+- MuJoCoの物体高さが開始時より9 cm以上高い状態を約2秒保持した場合に把持成功と判定します。固定ジョイントや物体の強制追従は使いません。
+- MoveItのAttachedCollisionObjectは計画上の表現です。MuJoCoでは接触・摩擦で保持するため滑りが生じます。デモ中だけ指と箱、箱と作業台の接触を許可し、終了・中断時に計画シーン設定を戻します。
+- 中断・失敗後はその場で止まります。続けて試す場合はGUIでシミュレーションを再起動してください。
+- 実装は `docker/demos/openarm_demos/openarm_demos/grasp_demo.py`。既知位置の直方体と右腕向けのサンプルです。カメラ認識、任意位置・ボトルの把持、実機動作は対象外です。
+
+
+## 両腕同時把持と開発
+
+GUIの「両腕把持デモ」、または `bash demo_grasp.sh` で左右それぞれの直方体を同時に把持します。`bash demo_grasp.sh --arms left` / `--arms right` で片側だけも検証できます。両腕の初期姿勢から開始し、中断後はシミュレーションを再起動してください。デモは机と対象の箱を配置し、ボトルを削除します。
+
+`oa-code` はDockerへ接続し、`/workspaces/OpenArm_dev` を開きます。`src/openarm_demos/openarm_demos/` のデモコードはリポジトリの `docker/demos/openarm_demos/openarm_demos/` と同じファイルへのリンクです。`environment/` から環境ソース全体を参照できます。
+
+起動時にこのROSパッケージを開発ワークスペースで `colcon build --symlink-install --packages-select openarm_demos` します。VS Code内で変更・追加した場合も同じコマンドでビルドし、`source install/setup.bash` の後に `ros2 run openarm_demos bimanual_demo` を実行できます。GUIも実行時にこの開発用overlayを読み込みます。物理ブリッジなど `environment/docker/app/` の変更にはDockerイメージの再ビルドが必要です。
+
+モーター資料、力の換算の前提、滑りの原因と検証結果は [HARDWARE_MODEL.md](HARDWARE_MODEL.md) を参照してください。物体の置き戻し姿勢は物理接触によって変わる場合があります。

@@ -1,5 +1,5 @@
 """Scene asset definitions. SI units. Bottle is an approximate rigid, filled 500 mL bottle."""
-import json, math
+import json, math, copy
 from pathlib import Path
 import xml.etree.ElementTree as E
 import numpy as np
@@ -12,6 +12,10 @@ ITEMS={
                  {'type':'ellipsoid','size':[0.0325,0.0325,0.025],'pos':[0,0,0.065],'rgba':[0.3,0.65,0.85,1]},
                  {'type':'cylinder','size':[0.014,0.014],'pos':[0,0,0.088],'rgba':[0.3,0.65,0.85,1]},
                  {'type':'cylinder','size':[0.015,0.008],'pos':[0,0,0.102],'rgba':[0.1,0.25,0.65,1]}]}}
+
+ITEMS['box_left']=copy.deepcopy(ITEMS['box'])
+ITEMS['box_left']['id']='openarm_grasp_box_left'
+ITEMS['box_left']['label']='左手用直方体'
 
 def camera_config():
     from camera_mount import config

@@ -36,6 +36,8 @@ RUN sed -i 's/\r$//' /opt/openarm/scripts/*.sh \
 RUN apt-get update && apt-get install -y --no-install-recommends mesa-utils python3-tk fonts-noto-cjk libosmesa6 libegl1 && rm -rf /var/lib/apt/lists/*
 # OpenArm development tools
 RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client build-essential cmake python3-colcon-common-extensions python3-rosdep && rm -rf /var/lib/apt/lists/*
+COPY demos /opt/openarm/demo_ws/src
+RUN . /opt/ros/jazzy/setup.sh && cd /opt/openarm/demo_ws && colcon build --symlink-install --packages-select openarm_demos
 ENV OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml \
     OPENARM_SCENE=/opt/openarm/models/v1/simulation_scene.xml \
     LP_NUM_THREADS=2 \
