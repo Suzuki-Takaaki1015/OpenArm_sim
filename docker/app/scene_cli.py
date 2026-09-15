@@ -11,6 +11,7 @@ from std_srvs.srv import SetBool, Trigger
 from rcl_interfaces.srv import SetParametersAtomically
 from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
 from scene_objects import OBJECTS
+from environment_assets import ITEMS
 def call(node, kind, name, request):
     client=node.create_client(kind,name)
     try:
@@ -40,7 +41,7 @@ def apply(node, enabled):
     if not call(node,ApplyPlanningScene,'/apply_planning_scene',request).success:
         raise RuntimeError('MoveIt rejected planning scene')
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','box-on','box-off','box-reposition','bottle-on','bottle-off','bottle-reposition','camera-on','camera-off','box-place','bottle-place','box_left-on','box_left-off','box_left-reposition','box_left-place']);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);args=p.parse_args()
     if args.mode.endswith('-place') and (args.x is None or args.y is None or not all(math.isfinite(v) for v in [args.x,args.y,args.yaw])):p.error('Specify finite --x and --y (metres), and --yaw (degrees)')
     rclpy.init();node=Node('openarm_scene_cli')
     try:
@@ -54,8 +55,8 @@ def main():
             result=call(node,SetBool,'/openarm/camera/set_enabled',req)
             if not result.success:raise RuntimeError(result.message)
             print(result.message);return
-        if args.mode.startswith(('box-','box_left-','bottle-')):
-            key,action=args.mode.split('-')
+        if args.mode.rsplit('-',1)[0] in ITEMS:
+            key,action=args.mode.rsplit('-',1)
             if action!='off':
                 req=SetBool.Request();req.data=True
                 result=call(node,SetBool,'/openarm/set_obstacles',req)

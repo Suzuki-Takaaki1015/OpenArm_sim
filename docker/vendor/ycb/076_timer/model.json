@@ -1,0 +1,26 @@
+{
+  "source_mesh": null,
+  "source_sha256": null,
+  "offset_m": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "size": [
+    0.085,
+    0.08,
+    0.04
+  ],
+  "visual": "visual.obj",
+  "texture": null,
+  "collision": [
+    "proxy_000.obj"
+  ],
+  "collision_threshold_m": null,
+  "approximation": true,
+  "note": "Official archives empty/unavailable; 85 x 80 x 40 mm envelope from YCB ICAR 2015 Table I. Buttons/display omitted.",
+  "files_sha256": {
+    "proxy_000.obj": "2150e816e41a84bb664bd0f7e46b987c7cfdb061922177c66262bd7d39562ddd",
+    "visual.obj": "2150e816e41a84bb664bd0f7e46b987c7cfdb061922177c66262bd7d39562ddd"
+  }
+}

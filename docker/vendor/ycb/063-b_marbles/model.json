@@ -1,0 +1,25 @@
+{
+  "source_mesh": "063-b_marbles/google_16k/textured.obj",
+  "source_sha256": "288e1eea0514a6fe7274a91095435765122d55b8806f1fe200c9e2dc2d3e2aa1",
+  "offset_m": [
+    -0.009138,
+    -0.045161,
+    0.016955
+  ],
+  "size": [
+    0.035014,
+    0.035031999999999994,
+    0.034488000000000005
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "69eab54815218029fc6eec9d3eb5a3c31fc1ff0b7a106392be621cd8056f8e4d",
+    "texture.png": "88ac556d97711ffc7ad4d02d9529a14f1de9582e42f26aa3e95adf8e11dbd02a",
+    "visual.obj": "b3e680c0dabbf0d6438929b7544814bcfc794fd46865044d77bc4e79a42a2bae"
+  }
+}

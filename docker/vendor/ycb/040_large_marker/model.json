@@ -1,0 +1,51 @@
+{
+  "source_mesh": "040_large_marker/google_16k/textured.obj",
+  "source_sha256": "393d956da5f6cfe50614829faf4755bdb786c7db95abc1488f3b60505b1e2740",
+  "offset_m": [
+    -0.03569,
+    -0.0050825,
+    0.0091745
+  ],
+  "size": [
+    0.021022,
+    0.120969,
+    0.018895000000000002
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj",
+    "collision_006.obj",
+    "collision_007.obj",
+    "collision_008.obj",
+    "collision_009.obj",
+    "collision_010.obj",
+    "collision_011.obj",
+    "collision_012.obj",
+    "collision_013.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "cb5dd78a4000a3e4190c8764fe68589de36c4df6d11fdec23a163dda7cd881e1",
+    "collision_001.obj": "1619cc68dfa03efa294e481d9363efd5084bcb0c92021d0ded64705648625ae8",
+    "collision_002.obj": "4fa018bceef3dc217dde603406fe9b6f6968f3f2d59eb8b5c7ad6234d5f266c5",
+    "collision_003.obj": "8d6a00f6b2d571d6e07f29ddffdabecbe29684e0bd239cb351bd347bcc6772e3",
+    "collision_004.obj": "3267be733ab5142a7ff5fffba4eb8e1943803490a56832e2c242e39f5daff311",
+    "collision_005.obj": "acdfafc5d781eaee15d65918280ca6a8186947521f38cf52567d971bc76310ad",
+    "collision_006.obj": "c211a2d7aa9dce7346558813a8404411fdb657c6de5e8299868475294f6e618b",
+    "collision_007.obj": "15168bea8cfece5a7269d0194fa69dce2bcca4a24f3b6a892241a0c1057d93c5",
+    "collision_008.obj": "f32922f78d25b71a2b9362bc82b1dcc0e810538a757148fff8d376f2c0cad774",
+    "collision_009.obj": "7eb40b84939764e92592ca2e6f5d64122028c605c9744be5e204d000cc3a8b91",
+    "collision_010.obj": "22c63a209af21e65041919ef4522936062620787dea7a0b3f8c854933d215d24",
+    "collision_011.obj": "c7ec6cd17e80619f41c3267e36350ee594ad0f7f500d740874587e4a435d292d",
+    "collision_012.obj": "ebfb298a816540e3aba6825747fdbf21d3ba6ef22e8eb7100c51655c74ac227b",
+    "collision_013.obj": "927f40d6f67cf4809974996c5d950ff72e3f73a8a92a90b64c2ee4bcbe8936e9",
+    "texture.png": "7d454f57f9b04395bd7f375a2927830b1b389be53b71f6b142d611efbc3535e3",
+    "visual.obj": "b0c8e9e4cb72143db3d7a134cda5da77c8001927bfd29bfcc180a2585a29684e"
+  }
+}

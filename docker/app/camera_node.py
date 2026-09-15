@@ -14,6 +14,7 @@ from geometry_msgs.msg import TransformStamped
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 from environment_assets import ITEMS,camera_config
 from scene_objects import OBJECTS
+from ycb_assets import set_visibility
 
 class Camera(Node):
     def __init__(self):
@@ -75,7 +76,7 @@ class Camera(Node):
                 g=self.mj.mj_name2id(m,self.mj.mjtObj.mjOBJ_GEOM,obj['id']);m.geom_rgba[g]=obj['rgba'] if snapshot['obstacles'] else [0,0,0,0]
             for key,obj in ITEMS.items():
                 for i,geom in enumerate(obj['geoms']):
-                    g=self.mj.mj_name2id(m,self.mj.mjtObj.mjOBJ_GEOM,f'{obj["id"]}_{i}');m.geom_rgba[g]=geom['rgba'] if snapshot['objects'][key]['enabled'] else [0,0,0,0]
+                    g=self.mj.mj_name2id(m,self.mj.mjtObj.mjOBJ_GEOM,f'{obj["id"]}_{i}');set_visibility(m,g,geom,snapshot['objects'][key]['enabled'])
             self.mj.mj_forward(m,d)
             color=self.renderers['color'];color.disable_depth_rendering();color.update_scene(d,camera='d435_color');self.publish('color',color.render().copy(),snapshot)
             color.enable_depth_rendering();self.publish('aligned_depth_to_color',color.render().copy(),snapshot)

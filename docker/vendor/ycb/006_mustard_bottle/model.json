@@ -1,0 +1,49 @@
+{
+  "source_mesh": "006_mustard_bottle/google_16k/textured.obj",
+  "source_sha256": "992621f78a4fa6267da71418e530cd547bd066775da0242e578ddfb561d7cb5d",
+  "offset_m": [
+    -0.015338999999999998,
+    -0.0234985,
+    0.09249750000000001
+  ],
+  "size": [
+    0.09719799999999999,
+    0.066621,
+    0.191301
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj",
+    "collision_006.obj",
+    "collision_007.obj",
+    "collision_008.obj",
+    "collision_009.obj",
+    "collision_010.obj",
+    "collision_011.obj",
+    "collision_012.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "37f90d9bd1f2dd412788961b77808d21a351f8a00addf3441cf8e6291938bbe6",
+    "collision_001.obj": "2d347df67216142276a5e44daa20c0dd43fdfab47c466766caf6d230f0509e83",
+    "collision_002.obj": "480f7a96d1124831f1e31248352d2b39000e75343e50ea028dcfaa9be72f0e22",
+    "collision_003.obj": "385a3d2849cb97c379eb43013c11cc20d9310488bd29c2a54a57cbed7fd6861e",
+    "collision_004.obj": "da11d1a539febd478c8986fdd71166dcc17e059a99930e244645b9dff1accb85",
+    "collision_005.obj": "81d041a234026714d6f2362fdbd373326198fb4ce98bc102e1ddb40c267020db",
+    "collision_006.obj": "ca3e8ce7c9470bb8466006f774aa71228cb1dd48cfe49b5f52330cb079b6df24",
+    "collision_007.obj": "8a4847cdf9f8b3060c64853154eb336f7ff4ba969b00610d1b18fd75a77fb766",
+    "collision_008.obj": "d7a5e3bea2fcbfde83d7661ea39356616c418bd5361f94e3628e0dbc74b56299",
+    "collision_009.obj": "d5961235d655056dfe6f6a83a8e51e870ebae780fb6ef2f9bc5b364a975572b2",
+    "collision_010.obj": "3eab8513652a10064aaa9ee95bf936e81f37c81c381cb0ac1d40e92b85aca42c",
+    "collision_011.obj": "f0b532d0eb9b3b8d2459da865652d211f2e3a0e43f7976aaf96c62a40fc0eb98",
+    "collision_012.obj": "7592ebef37bcc04383d064384ba305f468afc9160a018b9d01860656884c5eef",
+    "texture.png": "c55a0697853acc88f6a29bac8b0c108f8388a3932a0bc31706ace9995e2fd7b5",
+    "visual.obj": "1fb9945902746c907a6ff577d12186e5a2853d396f983f8a90dec57a50302654"
+  }
+}

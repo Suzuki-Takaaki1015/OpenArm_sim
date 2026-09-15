@@ -1,0 +1,51 @@
+{
+  "source_mesh": "043_phillips_screwdriver/google_16k/textured.obj",
+  "source_sha256": "74db04d49c13cd7cb79a29dd4e25d497970cdaebecd78e34bd6263d8b281b26c",
+  "offset_m": [
+    -0.042698,
+    0.003381499999999999,
+    0.0173985
+  ],
+  "size": [
+    0.194858,
+    0.106967,
+    0.035515000000000005
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj",
+    "collision_006.obj",
+    "collision_007.obj",
+    "collision_008.obj",
+    "collision_009.obj",
+    "collision_010.obj",
+    "collision_011.obj",
+    "collision_012.obj",
+    "collision_013.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "3363daeceec42fec597c1b470cdb11692f1d8fe1e73d50a1735b2ed97c71d5eb",
+    "collision_001.obj": "c373a00b7c960c9885f2f005f78ef0b3833154bb2747001e6e7803be761f6ed3",
+    "collision_002.obj": "ad9fe1814f3d5199c383323381ca5e2028587984e17912e7e0f1c8e1d8f95659",
+    "collision_003.obj": "b7d8bb2f29ed247b5507f942d354de7d6c1c0700456fd40baacddb69b4606e94",
+    "collision_004.obj": "cd7c1c1f837f8b3b7719e5e9e1c7dbb5f1854d53f7528be3a1b69e48c4b4b035",
+    "collision_005.obj": "4abde944bc1fad8d4aa43ae6783d9add9d3da0d2c59b6e35924adbaf7ffc90b7",
+    "collision_006.obj": "c93ef9320a22fa2972c8fd04a04882ac787781d35a5da6f97a89371ee281f363",
+    "collision_007.obj": "5286e92a7be3c23b228a340f5d1221deb6194679c05960457c2b8070cbcbf0a5",
+    "collision_008.obj": "a177ccf631519b10b475e39e2fa23f5ddc0ad083090fbdbed2f4981cbac3dca5",
+    "collision_009.obj": "326a6136eb9fbc0d848ec4e0e9d3195bf5f1e7f7d3cb3fab1ef9a4b579cc3fca",
+    "collision_010.obj": "ea9899a3ebc5299b94a403e5649470b106f402eb39da233957dddf5afc91e7f7",
+    "collision_011.obj": "0df24e6eb2233ccab169ef3141e62424e78d8131dbe7ab7a1ebe2e30055c2c0e",
+    "collision_012.obj": "1852722c63fa9af30e17513dcbd51a49e878745bc40a2c75c94e76e609eca132",
+    "collision_013.obj": "22cd7cbee71625ba128679ddbe2a22ce9944260ca758c3bfabc80f9e19a36fe6",
+    "texture.png": "a9055b200a0ea4ffa1ad009e0b8a048298147b59a3c3de00712e9c37659949cd",
+    "visual.obj": "e9697dac4b081d10e5291af8882970f20c5509ea4c9bb3dc1207711c3ab65673"
+  }
+}

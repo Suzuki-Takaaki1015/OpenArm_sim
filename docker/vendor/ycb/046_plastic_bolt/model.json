@@ -1,0 +1,28 @@
+{
+  "source_mesh": null,
+  "source_sha256": null,
+  "offset_m": [
+    0.0,
+    -1.3010426069826053e-18,
+    0.003999999999999998
+  ],
+  "size": [
+    0.015,
+    0.012990381056766583,
+    0.043
+  ],
+  "visual": "visual.obj",
+  "texture": null,
+  "collision": [
+    "proxy_000.obj",
+    "proxy_001.obj"
+  ],
+  "collision_threshold_m": null,
+  "approximation": true,
+  "note": "Official scan has no surface; 43 x 15 mm envelope from YCB ICAR 2015 Table I. Thread omitted.",
+  "files_sha256": {
+    "proxy_000.obj": "9e64f951a53058ee5739bdfbfb9dd76c6160440e5d69772e41b62caa1d386e66",
+    "proxy_001.obj": "deaeb270a804546f9af4b997383ab8db68b01df13c292e4ffd33d35db6e2df8e",
+    "visual.obj": "101fd58632b95e34a763cfcfe1ea76c860addbc0e9bcdf51fc30a8996ab54613"
+  }
+}

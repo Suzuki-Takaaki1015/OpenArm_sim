@@ -1,0 +1,49 @@
+{
+  "source_mesh": "044_flat_screwdriver/google_16k/textured.obj",
+  "source_sha256": "145589358015d641b1b0998dd8685dc01ed1b6a40535dd18f2063df84f69af91",
+  "offset_m": [
+    -0.012492499999999997,
+    0.011665499999999995,
+    0.0171135
+  ],
+  "size": [
+    0.161871,
+    0.156885,
+    0.035041
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj",
+    "collision_006.obj",
+    "collision_007.obj",
+    "collision_008.obj",
+    "collision_009.obj",
+    "collision_010.obj",
+    "collision_011.obj",
+    "collision_012.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "c564351c04c0d6a063fbca23bd72409bcda2a0c973d9ebe9778b9e804340eec4",
+    "collision_001.obj": "890b98c58451c3db1fc97e0f64b971b5196c7d0718248c62817a2558958bdd4a",
+    "collision_002.obj": "1f32229cb0f8887c2fe8587d32f1857c52a9e8694ecc7730c01db295f4670b7f",
+    "collision_003.obj": "ba2f2bcd4f1d05381f1dfa4f8566c1dc6a272b055ee3680e1207ea8848498874",
+    "collision_004.obj": "e339c05e1b2976daa4fc18d41d00d0ff9df6bcfadf3e8aad3cf3eda36d6c48a8",
+    "collision_005.obj": "794ad4f30dfc347b26a291e8c400d96e10b4902d9f5c1cf0550ec6a2b9da94c9",
+    "collision_006.obj": "8dea0c765f6618db8bdd384fc5a3d6433bc229d5de0eb3bb4c50c517ae812163",
+    "collision_007.obj": "2cb3ddb9a44179db8a91a4fa66e4a25ac5da72d563030930ae50e8c62179e1af",
+    "collision_008.obj": "4ec2800cb028f2afaae84c27b18edef39fd53640f4beeb8a7039852e48d3f57b",
+    "collision_009.obj": "e855c052b017a822f3ad1fc7437a19ee160b06704655bed0dfd8dea5154bb598",
+    "collision_010.obj": "eccf576d250bb5f00f2779376b0c9e289bd536a032d3160ee7f0b81b4edefead",
+    "collision_011.obj": "bc92f1f3aecba9974a86de976fc8a5ef9afbd0c5f69eee6f98ea060b2dc07b7b",
+    "collision_012.obj": "7d4901531238005b7bf923a135a9e8cac9eaab03f82e9617947f96ab9a414120",
+    "texture.png": "8ceafc2509195874d403dfabb1a7a1d124955cc6a0104faf9d644b4ef0765868",
+    "visual.obj": "55c33df58363e2a65f68d0eba989f996352993553b9571550cb70bd8f4ddc670"
+  }
+}

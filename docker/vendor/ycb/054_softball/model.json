@@ -1,0 +1,25 @@
+{
+  "source_mesh": "054_softball/google_16k/textured.obj",
+  "source_sha256": "c8d87659ebc2f6fa7111c455cceb0e8c918a50bd55d1a5201202d19493ce85cc",
+  "offset_m": [
+    -0.019673000000000003,
+    0.010704000000000002,
+    0.0469735
+  ],
+  "size": [
+    0.09537000000000001,
+    0.09617400000000001,
+    0.09459100000000001
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "e8fe17e763f8fd25cbff97804afc9a194a5e46bce63081138c6281315546636c",
+    "texture.png": "e3c23d0abf943350c4bff5cdf2e73f789542c58dd413ea1ad1a966986e211fde",
+    "visual.obj": "ff20922933d62c23cc88eb3bfa50d4c845b7e72f0890d60e6174877422246890"
+  }
+}

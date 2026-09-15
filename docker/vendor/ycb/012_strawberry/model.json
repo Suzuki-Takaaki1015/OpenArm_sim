@@ -1,0 +1,25 @@
+{
+  "source_mesh": "012_strawberry/google_16k/textured.obj",
+  "source_sha256": "377955b6d931541fd5dc082eefbdd686ea835cbea7f5e3ab6c1bfb8c60499012",
+  "offset_m": [
+    -0.0008629999999999992,
+    0.015777000000000003,
+    0.022620499999999998
+  ],
+  "size": [
+    0.045224,
+    0.04528600000000001,
+    0.04567499999999999
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "8d5d9de5565e6ce51ebb1ef1bbfdc4a335e66d132c0967d9865a4ba2d70acf0a",
+    "texture.png": "783368d890fd4f300713f753e7a7c441f3f5e1b49211830edb7682d8a9e70407",
+    "visual.obj": "50f67085a63e7133a31f1d816a5557417546a66af9f6f232b50420db1e645b5b"
+  }
+}

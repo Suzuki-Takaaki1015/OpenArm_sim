@@ -3,3 +3,6 @@
 *.sh text eol=lf
 Dockerfile text eol=lf
 *.yaml text eol=lf
+
+# Generated YCB meshes: preserve asset hashes and avoid enormous text diffs.
+docker/vendor/ycb/**/*.obj binary

@@ -1,0 +1,25 @@
+{
+  "source_mesh": "055_baseball/google_16k/textured.obj",
+  "source_sha256": "46d0fcd1b8b10622b0adde9fe4eb064dcd37dd236af87fc095dfaf1d85419bd7",
+  "offset_m": [
+    -0.010081000000000001,
+    -0.048244999999999996,
+    0.036076500000000004
+  ],
+  "size": [
+    0.073078,
+    0.073712,
+    0.072563
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "7200226479fcebd4319a1959a6e1f92b91a77a5b62c02ddc6d6829efd7b79776",
+    "texture.png": "7efe12c5f5e9b17dbb935d0ef2daef66a6b7e2e5fb7ba9c5bc5d6eefececa3b5",
+    "visual.obj": "c6db2d7696a77f928c310115a1147ad57feda4578a9dc1e3da82e05f4ece770b"
+  }
+}

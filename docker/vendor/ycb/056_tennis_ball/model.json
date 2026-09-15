@@ -1,0 +1,25 @@
+{
+  "source_mesh": "056_tennis_ball/google_16k/textured.obj",
+  "source_sha256": "881169924fced3273be4972328fb86c1840ba07ec0e56afe0bff78afb2695df8",
+  "offset_m": [
+    0.0082115,
+    -0.044278,
+    0.0331315
+  ],
+  "size": [
+    0.066975,
+    0.06703,
+    0.066457
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "19d9a06c4a6a4d553408378ca020e6fabe65b5bd697d58f81906d17d3e0b42a4",
+    "texture.png": "622aac32c9b4e28171dea33eede5d58b4a0480e067b9ebfda0fafa871b5a90f2",
+    "visual.obj": "3000437d4f0aeeae59a7936dd8f0fbe557cf43e2e2911672cc0de2d46240b853"
+  }
+}

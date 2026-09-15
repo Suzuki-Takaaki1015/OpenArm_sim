@@ -26,12 +26,13 @@ COPY vendor/v2 /opt/openarm/models/v2
 COPY vendor/V2_MODEL_REVISION /opt/openarm/models/V2_MODEL_REVISION
 COPY vendor/LICENSE /opt/openarm/models/LICENSE
 COPY vendor/MODEL_REVISION /opt/openarm/models/MODEL_REVISION
+COPY vendor/ycb /opt/openarm/models/ycb
 COPY app /opt/openarm/app
 COPY scripts /opt/openarm/scripts
 RUN OPENARM_VERSION=1 OPENARM_CONFIG=/opt/openarm/config/v1 OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml python /opt/openarm/app/generate_config.py \
     && python /opt/openarm/app/prepare_v2.py \
     && OPENARM_VERSION=2 OPENARM_CONFIG=/opt/openarm/config/v2 OPENARM_MODEL=/opt/openarm/models/v2/simulation_robot.xml python /opt/openarm/app/generate_config.py
-COPY README.md ENVIRONMENT.md CAMERA_MOUNT.md THIRD_PARTY.md /opt/openarm/
+COPY README.md ENVIRONMENT.md CAMERA_MOUNT.md THIRD_PARTY.md YCB.md /opt/openarm/
 RUN sed -i 's/\r$//' /opt/openarm/scripts/*.sh \
     && chmod +x /opt/openarm/scripts/*.sh \
     && useradd --create-home --uid 10001 sim \
@@ -44,6 +45,7 @@ COPY demos /opt/openarm/demo_ws/src
 RUN . /opt/ros/jazzy/setup.sh && cd /opt/openarm/demo_ws && colcon build --symlink-install --packages-select openarm_demos
 ENV OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml \
     OPENARM_SCENE=/opt/openarm/models/v1/simulation_scene.xml \
+    OPENARM_VIEWER_FPS=30 \
     LP_NUM_THREADS=2 \
     OMP_NUM_THREADS=1 \
     PYTHONPATH=/opt/openarm/app \

@@ -1,0 +1,47 @@
+{
+  "source_mesh": "038_padlock/google_16k/textured.obj",
+  "source_sha256": "db41098f2477804659e1b2b6deaeb53659bc932e2aad73edc15e6205aacaec80",
+  "offset_m": [
+    -0.0179465,
+    0.0027124999999999996,
+    0.0142495
+  ],
+  "size": [
+    0.066973,
+    0.068055,
+    0.029141
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj",
+    "collision_006.obj",
+    "collision_007.obj",
+    "collision_008.obj",
+    "collision_009.obj",
+    "collision_010.obj",
+    "collision_011.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "2d2986ab0308227749aa6a93ceb8a0293f77352e6a844f1c418a1ad5f0d948f5",
+    "collision_001.obj": "f46a6cf52102f48a2f5c9b85554b6f884899c94114e33c715aa818656c5e3b66",
+    "collision_002.obj": "4a5ed8cfecb2610cfd4df1b5a537eb9b9ea623e9ec2d8725fad38639665cd370",
+    "collision_003.obj": "acd2033fdf624e53932ac1c23cd45a9799d7375423d5fcedf99bee415a394117",
+    "collision_004.obj": "05ffe767a7ab83eec57a4fcb0d8e57a45139537a17f78024f29d7c5b6797deef",
+    "collision_005.obj": "af5f2d3820ebc1d6859883d62e07209ec4cf84ec43e3d4141fccc57a0d455615",
+    "collision_006.obj": "497801774c81ff01b5fd365cb10d04c7f7d3559e02da9d3bade54f8129b48497",
+    "collision_007.obj": "28790481577cdce6075033d4d788c1eb77cf7aa78fe743ea282a8ac47fcdc36b",
+    "collision_008.obj": "15ff32dc4da07804c448ec8cd0a59d9a77acacbaa068b7c9f3ac1986db3d9464",
+    "collision_009.obj": "570eefcc63b969149157ee6f83ac86476e346f63dd0d066fba185f5f4a590c63",
+    "collision_010.obj": "698e29a734624d36c43559cb292519b712a34d93b8abde1eea5bea2e0863344b",
+    "collision_011.obj": "0a69f5fb1eba7ce6bf919f507c35d19966657d5ad923e7cca1218d657fbcce5f",
+    "texture.png": "c585ab33e700351b1d7c6cf6c4a3f9708ff97086324779a2ed3b9b2d777576ad",
+    "visual.obj": "946f53fb3430df72e0b9ca760f0aaf0b3959c9265df09ba007d03dd024aa9cf7"
+  }
+}

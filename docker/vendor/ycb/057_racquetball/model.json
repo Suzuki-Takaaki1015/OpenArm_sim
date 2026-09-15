@@ -1,0 +1,22 @@
+{
+  "source_mesh": "057_racquetball/google_16k/textured.obj",
+  "source_sha256": null,
+  "offset_m": null,
+  "size": [
+    0.055778,
+    0.056056,
+    0.055574
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": null,
+  "note": "Official ball scan; contact uses its convex hull (ball is convex).",
+  "files_sha256": {
+    "collision_000.obj": "96d8485769d219817c363462de2769ae2cf34eaed7150a9f56f4733058561b10",
+    "texture.png": "185dc0852e3c526cdbe1a84da712563eaa721e4ec8e346c08d9efb09d185ba46",
+    "visual.obj": "dd9a8f04047792f38ced66fbf60172a1a1142bd97b0615f8dfa6d41089298a77"
+  }
+}

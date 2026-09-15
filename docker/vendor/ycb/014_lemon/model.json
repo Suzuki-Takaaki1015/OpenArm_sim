@@ -1,0 +1,25 @@
+{
+  "source_mesh": "014_lemon/google_16k/textured.obj",
+  "source_sha256": "5b18a5c7b097893cbd1a5c12ef8ee03aa0b62d300a9610377f1b131575da5a45",
+  "offset_m": [
+    -0.010579,
+    0.0216535,
+    0.0262735
+  ],
+  "size": [
+    0.060588,
+    0.059299000000000004,
+    0.053017
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "438b49e5fd41923533138d1e68bf89eac0e99bd2b3f0e07a06bfbdb753111877",
+    "texture.png": "5baec62bd7116271d9ed89efc3737fdb032ce5cf2300a1d22fdeee91633ea251",
+    "visual.obj": "bfa28cebf7beb141e32a3e4fae214a00ed0ba941a723fbcc82e53882af4c5ad0"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "source_mesh": "032_knife/google_16k/textured.obj",
+  "source_sha256": "d169640d6bb61945c43a02f3966b617d273044f78892d8ab6c0e1d6e69e09f94",
+  "offset_m": [
+    -0.019428000000000008,
+    -0.027415500000000002,
+    0.0039180000000000005
+  ],
+  "size": [
+    0.21483000000000002,
+    0.020605000000000002,
+    0.022614000000000002
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj",
+    "collision_006.obj",
+    "collision_007.obj",
+    "collision_008.obj",
+    "collision_009.obj",
+    "collision_010.obj",
+    "collision_011.obj",
+    "collision_012.obj",
+    "collision_013.obj",
+    "collision_014.obj",
+    "collision_015.obj",
+    "collision_016.obj",
+    "collision_017.obj"
+  ],
+  "collision_threshold_m": 0.0015,
+  "files_sha256": {
+    "collision_000.obj": "95c0b69a760d60b939536481669dcb281fcea6eefccab498a3c82bf1ec9249ef",
+    "collision_001.obj": "0e97b0c383fb372124c95217fbe871db94c0f67a00d18da434ea620491bcd851",
+    "collision_002.obj": "813cefe8705d8a97de3ceac315eefb3ab2108f1f97e9f5eed64926f40ff46c5a",
+    "collision_003.obj": "1324411811ce2a780edf53bb819b86332f096b5fe4e254f616e9d33e91fdd903",
+    "collision_004.obj": "debbd9aa2737b84b0317d535403d0566112643265188ceec66f154e41c41e572",
+    "collision_005.obj": "287184ab7edb841f931224905f2bbf4229e31d6c6786967d26f15bf3fbb39b60",
+    "collision_006.obj": "02146ac647cecb23548b4a49f6546b5a619f952f8f2d44f5a11165ab49785a92",
+    "collision_007.obj": "ad0a601a598f315bd55a621e251bf135611d7a39d537158e62a535807fa139d5",
+    "collision_008.obj": "3c373bfc844de880756fa21a31f3d05d872b16d6447c1fa136da28c7bd1e98aa",
+    "collision_009.obj": "6b70ee86c7c9a514094ffde7acd19bf3de0ab2b2df6542b837b2b24be8ba8720",
+    "collision_010.obj": "939dcde7dfab95e2a1381b82ecda1fd8dc3ae7b990b5757bd9d9e4299c547e79",
+    "collision_011.obj": "b4508bf596ab6ec21f53fffceee1dfc1258fb33e320cb09ca88a6c059bdf8820",
+    "collision_012.obj": "a3a3e0453bd4420ad4c9c47e83cdd3137de7917bccc25fa90da3712ff429c56e",
+    "collision_013.obj": "a06a0cfd6736e76ebae596a1a99c25a7d23cdad00234afe68c8e609d4b0dfc2f",
+    "collision_014.obj": "0341b28b8cfb48b688e65f0ccb25fc00691acda0a1559a00da5ea14bb625bc73",
+    "collision_015.obj": "46008fc251e3c5c5daa3c25c45f179245aa379b0e5411d8f52571d9497334150",
+    "collision_016.obj": "de799d1553e10b4db0453254a81eaf3373003ed25e961d4d7a755dddab7c6e54",
+    "collision_017.obj": "05f99e2aaf8591f7e18c322ec61e63c58eb4697d6203870a068a2cdaff188451",
+    "texture.png": "1fcbdada52ae07f774095273dd33d1cfff20c0f5fd5aedf51ed54abd95e7c8e0",
+    "visual.obj": "71a94f871d95e84380ee0fb7385445f8b0438d849005d269c5154eee8ab13d2e"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "source_mesh": "026_sponge/google_16k/textured.obj",
+  "source_sha256": "9ebf0bf63212e195a50ad844db910ec1fd2506b1289c2e50c704dcffbc35931a",
+  "offset_m": [
+    -0.0153445,
+    0.0137445,
+    0.009619500000000001
+  ],
+  "size": [
+    0.079147,
+    0.112113,
+    0.019007000000000003
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "28d80fb35deabe608c12482652a670904ae03f904c297c0f2e39657d0983b6fa",
+    "collision_001.obj": "0162f7571e5b84f3f2be3e2b7f4ffb262531e1162254e3e7c558545f16120206",
+    "collision_002.obj": "1f4461228d1bb0ece85ca3ca737420ce21241cbc75fc12718d8a2d5ff56acfac",
+    "collision_003.obj": "e0bf2f2dc84f70543e6b9766b09da86e80a4c0597c5bdbae62ae4632a7e13646",
+    "collision_004.obj": "377e927f87c3e7d3aa717826232644fca7d0fd19571521c130983e09aac984df",
+    "collision_005.obj": "063585c4e7285f71ba09814ef7ea554315e759a88983d68a0f637651a66d04b5",
+    "texture.png": "ea0fe1d310898f807988f909f5ed3224503da273ecb86e45d9d6a052ad9ade82",
+    "visual.obj": "c0b08906cb2565dd6eaa50caf7ca81708b73e4a2a3ce6bc6cd0786e3e034d7d7"
+  }
+}

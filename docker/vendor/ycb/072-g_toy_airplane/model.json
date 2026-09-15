@@ -1,0 +1,32 @@
+{
+  "source_mesh": "072-g_toy_airplane/tsdf/nontextured.ply",
+  "source_sha256": "ac4c5387df1ab79b3039a30e89d8b7e6b43824f09d10c3b5dae3c60b33778094",
+  "offset_m": [
+    -0.001956940151367187,
+    0.005870819848632813,
+    0.03162623354760111
+  ],
+  "size": [
+    0.03522492,
+    0.03522492,
+    0.010767249999999999
+  ],
+  "visual": "visual.obj",
+  "texture": null,
+  "collision": [
+    "clean_000.obj",
+    "clean_001.obj",
+    "clean_002.obj",
+    "clean_003.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "approximation": true,
+  "note": "Incomplete official scan. Removed scan-platform fragments outside the central 160 mm square, then rebuilt collision volumes. Geometry remains an approximate reconstruction, not an exact CAD model.",
+  "files_sha256": {
+    "clean_000.obj": "c0392b151cd395787106cc51081bca9acd4176a91dc22fc11bfc63df683c7315",
+    "clean_001.obj": "aa64c6db1b912573d67cff092db9401e8852f4e5e334b09863f294ae624a0413",
+    "clean_002.obj": "ccb412ae07a46370ba73e88ea1b0c73175c2df76c3e16e763f98e57a631cbf7c",
+    "clean_003.obj": "fc7cef1b423ed67f735c7f56b73738130dc23836979a80473d3585ccd3dafd6d",
+    "visual.obj": "36df9e2c6b395cdc7007d663b61faf923458571c25ff6af42cec033fe0ca28bf"
+  }
+}

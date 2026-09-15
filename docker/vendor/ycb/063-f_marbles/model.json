@@ -1,0 +1,26 @@
+{
+  "source_mesh": null,
+  "source_sha256": null,
+  "offset_m": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "size": [
+    0.016,
+    0.016,
+    0.016
+  ],
+  "visual": "visual.obj",
+  "texture": null,
+  "collision": [
+    "proxy_000.obj"
+  ],
+  "collision_threshold_m": null,
+  "approximation": true,
+  "note": "Official triangle surface unavailable; sphere diameter 16 mm is an estimate, not an official variant measurement.",
+  "files_sha256": {
+    "proxy_000.obj": "ecbf87efd0f957d98d4c0d1cb426e267429c6090f314b5c4819d403785d853cf",
+    "visual.obj": "ecbf87efd0f957d98d4c0d1cb426e267429c6090f314b5c4819d403785d853cf"
+  }
+}

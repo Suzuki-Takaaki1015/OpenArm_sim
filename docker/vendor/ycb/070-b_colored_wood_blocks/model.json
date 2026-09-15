@@ -1,0 +1,25 @@
+{
+  "source_mesh": "070-b_colored_wood_blocks/google_16k/textured.obj",
+  "source_sha256": "a57a6ca26183522ffeaa6c75e0d7380dee1d68346bd0ae0940c224743aa20c31",
+  "offset_m": [
+    -0.0187405,
+    -0.008891,
+    0.0126915
+  ],
+  "size": [
+    0.034929,
+    0.034932,
+    0.025847
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "4443d1f7cabdcad952155fd297adda2e14880344908f4784e909833e9e46f2a2",
+    "texture.png": "9581d6152d82c9884a59e3315be4aa37f00a46742f191dbce0e50a47ebf6fda8",
+    "visual.obj": "f2bb43ecd1901aadfeea61b7c4e766b6466a8db7e6067192a231997b57c486c7"
+  }
+}

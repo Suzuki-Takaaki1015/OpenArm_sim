@@ -47,6 +47,10 @@ class Demo(Node):
     def toggle(self,name,value):
         req=SetBool.Request();req.data=value;r=self.call(SetBool,name,req)
         if not r.success:raise RuntimeError(r.message)
+    def clear_objects(self):
+        if self.snapshot is None:raise RuntimeError("Simulation state unavailable")
+        for key,state in self.snapshot["objects"].items():
+            if state["enabled"]:self.toggle(f"/openarm/objects/{key}/set_enabled",False)
     def scene(self,flags):
         req=GetPlanningScene.Request();req.components.components=flags
         return self.call(GetPlanningScene,'/get_planning_scene',req).scene
@@ -149,7 +153,7 @@ class Demo(Node):
             raise RuntimeError('Start from home: use the GUI simulation restart button, then run this demo')
         if self.scene(PlanningSceneComponents.ROBOT_STATE_ATTACHED_OBJECTS).robot_state.attached_collision_objects:raise RuntimeError('Remove existing attached objects before running demo')
         print('[1/8] Prepare worktable and box; remove bottle',flush=True)
-        self.toggle('/openarm/objects/box/set_enabled',False);self.toggle('/openarm/objects/bottle/set_enabled',False);self.toggle('/openarm/set_obstacles',True);apply_table(self,True)
+        self.clear_objects();self.toggle('/openarm/set_obstacles',True);apply_table(self,True)
         q=SetParametersAtomically.Request();q.parameters=[Parameter(name=k,value=ParameterValue(type=ParameterType.PARAMETER_DOUBLE,double_value=v)) for k,v in [('x',.30),('y',-.18),('yaw',0.)]]
         r=self.call(SetParametersAtomically,'/openarm/objects/box/place',q).result
         if not r.successful:raise RuntimeError(r.reason)

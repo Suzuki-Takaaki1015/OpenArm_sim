@@ -1,0 +1,29 @@
+{
+  "source_mesh": "008_pudding_box/google_16k/textured.obj",
+  "source_sha256": "3c7ea25076552304a570abef26146ee5621e0a7b432ec435b42d0aabe8273440",
+  "offset_m": [
+    0.0005049999999999985,
+    0.019123000000000005,
+    0.018947500000000003
+  ],
+  "size": [
+    0.137938,
+    0.128756,
+    0.03888900000000001
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "db8a52a8d6593f76319d5b0a2ac169ee2cfc7ff926641937a89b0b19541d5409",
+    "collision_001.obj": "be20418daeb21b099a392da4bf6736dab7dde4a3a342fdc8ce75c7c49d1b0986",
+    "collision_002.obj": "fed47cbc9f858ffcd263a4a2c88cb6fa61df3d0448402d585b07b1d8264961a2",
+    "texture.png": "ff34e1bfda66ec7f1bcb2499a6a08bfe07ed1a71ee18824e83f3cba1786909eb",
+    "visual.obj": "1cb5b522facbae8d4613d97a9b0a315790738025b5c09dcddaf358291d608177"
+  }
+}

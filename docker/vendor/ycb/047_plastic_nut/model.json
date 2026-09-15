@@ -1,0 +1,36 @@
+{
+  "source_mesh": null,
+  "source_sha256": null,
+  "offset_m": [
+    0.0,
+    4.336808689942018e-19,
+    0.0
+  ],
+  "size": [
+    0.015,
+    0.01299038105676658,
+    0.008
+  ],
+  "visual": "visual.obj",
+  "texture": null,
+  "collision": [
+    "proxy_000.obj",
+    "proxy_001.obj",
+    "proxy_002.obj",
+    "proxy_003.obj",
+    "proxy_004.obj",
+    "proxy_005.obj"
+  ],
+  "collision_threshold_m": null,
+  "approximation": true,
+  "note": "Official TSDF includes a 45 cm scan platform; replaced by hollow hex nut, 15 x 8 mm envelope from YCB ICAR 2015 Table I. Bore estimated; thread omitted.",
+  "files_sha256": {
+    "proxy_000.obj": "34900dee48bc1a6544b0c6dd3b1e6787f632924f430f60dd4e59a95bd6bebaac",
+    "proxy_001.obj": "21843830ee1a97af0f56042c88faf64e44e88208fe2b016fd882fc93bb5b4d6f",
+    "proxy_002.obj": "ffe436482bde79cb86c00b104bddee133dd79424a1a308c878202c877ec12dcd",
+    "proxy_003.obj": "690f48959a7f6e97d7ac56a60669d0698020f3d6c8e8ce20ba689a72a0c8061f",
+    "proxy_004.obj": "4d825851bc3f01b3cac2591e6687d3aa107be9d41a915b8b94542752715cd1da",
+    "proxy_005.obj": "04c737b1bcd0370a39ac92fbec5a2d8e03313033c8d395d6bd72b0165c25b9ce",
+    "visual.obj": "d894e200e56e49700676eeec3a2de58fdd41b54fc46f5860c2c82a996a3af51a"
+  }
+}

@@ -164,7 +164,7 @@ class BimanualDemo(Demo):
         if any(abs(positions.get(name,99))>.08 for side in SIDES for name in self.arm_names(side)):raise RuntimeError('Use the simulation restart button before running this demo')
         if self.scene(PlanningSceneComponents.ROBOT_STATE_ATTACHED_OBJECTS).robot_state.attached_collision_objects:raise RuntimeError('Existing attached objects must be cleared first')
         print('[1/8] Prepare two boxes and worktable',flush=True)
-        for key in ('box','box_left','bottle'):self.toggle(f'/openarm/objects/{key}/set_enabled',False)
+        self.clear_objects()
         self.toggle('/openarm/set_obstacles',True);apply_table(self,True)
         for side in self.sides:
             cfg=SIDES[side];q=SetParametersAtomically.Request();q.parameters=[Parameter(name=k,value=ParameterValue(type=ParameterType.PARAMETER_DOUBLE,double_value=v)) for k,v in [('x',X),('y',cfg['y']),('yaw',0.)]];r=self.call(SetParametersAtomically,f'/openarm/objects/{cfg["key"]}/place',q).result
@@ -188,6 +188,9 @@ class BimanualDemo(Demo):
         # Once clear, restore normal object collision checks before planning home.
         # Keeping grasp-only contact permission here lets a return path hit a box.
         restored=PlanningScene();restored.is_diff=True;restored.robot_state.is_diff=True;restored.allowed_collision_matrix=self.saved_acm;self.apply(restored)
+        # Fold empty fingers after leaving the box. Open v2 fingers can touch
+        # the chest while the arm follows an otherwise valid return path.
+        self.grip_both(0.)
         self.move_both(home=True);self.pause(1.)
         for side in self.sides:
             obj=self.object_state(side);w,x,y,z=obj['quaternion_wxyz'];extent=abs(2*(x*z-w*y))*.025+abs(2*(y*z+w*x))*.02+abs(1-2*(x*x+y*y))*.04

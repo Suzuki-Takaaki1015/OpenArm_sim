@@ -3,6 +3,7 @@ import json, math, copy
 from pathlib import Path
 import xml.etree.ElementTree as E
 import numpy as np
+from ycb_assets import items
 
 ITEMS={
  'box':{'id':'openarm_grasp_box','label':'直方体','mass':0.10,'half_height':0.04,
@@ -17,6 +18,8 @@ ITEMS['box_left']=copy.deepcopy(ITEMS['box'])
 ITEMS['box_left']['id']='openarm_grasp_box_left'
 ITEMS['box_left']['label']='左手用直方体'
 
+ITEMS.update(items())
+
 def camera_config():
     from camera_mount import config
     return config()
@@ -27,15 +30,29 @@ def rotation(rpy):
 
 def add_assets(scene_path):
     tree=E.parse(scene_path);world=tree.find('worldbody')
+    assets=tree.find('asset')
+    if assets is None:assets=E.SubElement(tree.getroot(),'asset')
     vec=lambda x:' '.join(str(v) for v in x)
     for index,(key,obj) in enumerate(ITEMS.items()):
         body=E.SubElement(world,'body',name=obj['id'],pos=f'{index} 0 -5',gravcomp='1')
         E.SubElement(body,'freejoint',name=obj['id']+'_free')
         # Explicit inertia avoids making total mass depend on overlapping visual primitives.
         mass=obj['mass'];inertia=[mass*0.004,mass*0.004,mass*0.001] if key=='bottle' else [mass*(.04**2+.08**2)/12,mass*(.05**2+.08**2)/12,mass*(.05**2+.04**2)/12]
+        if 'size' in obj:
+            x,y,z=obj['size'];inertia=[mass*(y*y+z*z)/12,mass*(x*x+z*z)/12,mass*(x*x+y*y)/12]
         E.SubElement(body,'inertial',pos='0 0 0',mass=str(mass),diaginertia=vec(inertia))
         for i,g in enumerate(obj['geoms']):
-            E.SubElement(body,'geom',name=f'{obj["id"]}_{i}',type=g['type'],size=vec(g['size']),pos=vec(g['pos']),rgba='0 0 0 0',contype='0',conaffinity='0',condim='4',friction='1 0.01 0.001')
+            name=f'{obj["id"]}_{i}'
+            attrs=dict(name=name,type=g['type'],pos=vec(g['pos']),rgba='0 0 0 0',contype='0',conaffinity='0',condim='4',friction='1 0.01 0.001')
+            if g['type']=='mesh':
+                E.SubElement(assets,'mesh',name=name+'_mesh',file=g['mesh'])
+                attrs['mesh']=name+'_mesh';attrs['group']='3' if g['collision'] else '2'
+                if g.get('texture'):
+                    E.SubElement(assets,'texture',name=name+'_texture',type='2d',file=g['texture'])
+                    E.SubElement(assets,'material',name=name+'_material',texture=name+'_texture',rgba='1 1 1 1',specular='0.1')
+                    # Material is enabled together with the object's visibility at runtime.
+            else:attrs['size']=vec(g['size'])
+            E.SubElement(body,'geom',**attrs)
     cfg=camera_config();R=rotation(cfg['rpy_rad']);xyaxes=vec(list(-R[:,1])+list(R[:,2]))
     for channel in ('color','depth'):
         offset=R@np.array(cfg['color_offset_m']) if channel=='color' else np.zeros(3)

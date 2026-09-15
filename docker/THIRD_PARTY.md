@@ -23,3 +23,7 @@ pinned at ce761e2eb1079c3e7cafe515a375930adedad190. Apache-2.0 license unchanged
 The adapter `app/prepare_v2.py` flattens the official attachment at build time,
 adds a fixed hand control frame, and shares this project's optional RGB-D scene.
 No official motor axes, ranges, inertias or fingertip meshes are replaced.
+
+## YCB
+
+The YCB Object and Model Set scans and derivatives are CC BY 4.0. See `vendor/ycb/ATTRIBUTION.md` and `vendor/ycb/catalog.json` for original authors, source URLs, hashes, modifications and the separately labelled generated proxies.

@@ -1,0 +1,39 @@
+{
+  "source_mesh": "036_wood_block/google_16k/textured.obj",
+  "source_sha256": "df2d86634812e5d3aeecfbfc18f134921538c0093176eaa8247524ea0e684075",
+  "offset_m": [
+    0.023789499999999998,
+    -0.009884999999999998,
+    0.1029445
+  ],
+  "size": [
+    0.103917,
+    0.103464,
+    0.206003
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj",
+    "collision_006.obj",
+    "collision_007.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "f09fbe707b7bbaa0b1f969bc456e8aed5337f9fc72659ee554f02f9d54403cee",
+    "collision_001.obj": "ba9f71eb79e621c9f5cdc10667d88d2ddb3c48e647df2ce6d3a2a1c6cf32cbfd",
+    "collision_002.obj": "88e0e156f4d2f70d322b576e5e5ac81214d32c1d7df993725049b66c1c510d9b",
+    "collision_003.obj": "ea31fc99ec5dd34a5401b62fa521d4c23897074e7af5775e20c609fce6640a0a",
+    "collision_004.obj": "20ce9e1d842968539f07a22330e405b8a34021a5e619276b921cee56491d6b87",
+    "collision_005.obj": "b8357f5089c18adc9e1d657660429ac2809a37a87a68948ca5aaa250643cb8bf",
+    "collision_006.obj": "a7afe91019ca0a0be35a1c76221c33dc064e7d0e38a9448d5e4a7e6897706b0a",
+    "collision_007.obj": "b83d6c6e8cd63199235cc5c9a1a38e3d1ba290de628aae9f09f71c7da0ee0062",
+    "texture.png": "bc7662793eee42a30e82a48cd32f7283dd5c40a84f57c2a1f441580163cd6439",
+    "visual.obj": "0a8166351f2ec25f888bf1c3059ba9dfd1c0f4b7a960087cb7d35a8f0593bc52"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "source_mesh": "013_apple/google_16k/textured.obj",
+  "source_sha256": "46249b76379bae26a6f78861b5568ceed25cf1e397530a313430b1d94d57320c",
+  "offset_m": [
+    0.0008589999999999987,
+    -0.0037844999999999997,
+    0.0355515
+  ],
+  "size": [
+    0.075448,
+    0.074871,
+    0.07188900000000001
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj",
+    "collision_001.obj",
+    "collision_002.obj",
+    "collision_003.obj",
+    "collision_004.obj",
+    "collision_005.obj",
+    "collision_006.obj",
+    "collision_007.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "65c0e65f67014d484d51cbaba35b7215fbfa998d746a751dbd8225caf41a895c",
+    "collision_001.obj": "c08a85f8f0a17d9c9e2dd76f0424875ba78233f076066cd2e7816c4bb56e623b",
+    "collision_002.obj": "37a61a99a7e73a253bc2b3f6131bf8ed91d2a57596bd94fc9895d7f7dfb2b016",
+    "collision_003.obj": "21e42b3a7b00e3dd762e82d707a7580a557057e5c3130fa8576e36292bdb8242",
+    "collision_004.obj": "e5ea9d9e6a38fc093b46bcd75e9723016a0727b0cc0e3fa4b3bd309f54f34959",
+    "collision_005.obj": "94b19bf06308897ddd3933a67d134d06db9650e6d27db8008ee01618c90e9bb8",
+    "collision_006.obj": "88f2dba7b7a256389c9896c7c082cdda80c8417fcb0ca6dc166413795aed5088",
+    "collision_007.obj": "9a7a7e0406f21a3656b37c0b1b10172e93d527f3906b186bb14b1f1295c98b8a",
+    "texture.png": "9dea2b8965466261e79d8f8017545c6f035f64c71c6d4427071476c71b5aa240",
+    "visual.obj": "9ce0ae164352461e113bade2578bf30954c863f8669b382ca138fb18a169fa72"
+  }
+}

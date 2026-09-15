@@ -1,0 +1,25 @@
+{
+  "source_mesh": "072-f_toy_airplane/poisson/textured.obj",
+  "source_sha256": "e3670bb1321ec6feab5995f7f540d68850c42c95a2b80c8d01b08484bb4c5d7c",
+  "offset_m": [
+    0.0024165000000000002,
+    0.002856185,
+    0.0312677
+  ],
+  "size": [
+    0.0254654,
+    0.02490903,
+    0.0351586
+  ],
+  "visual": "visual.obj",
+  "texture": "texture.png",
+  "collision": [
+    "collision_000.obj"
+  ],
+  "collision_threshold_m": 0.003,
+  "files_sha256": {
+    "collision_000.obj": "e1c2e814459ad04272f499fe511dc087e25a8c8abf27508b907e6a276c0805b4",
+    "texture.png": "cb40e48b888b4a8f01ccf5c5784f77be31717ed1f899163d25a92c70d0b3a968",
+    "visual.obj": "7b1b074a02e92c18143764eadf5977798b762650dbc0dab2cffd1a32a9fcf621"
+  }
+}
