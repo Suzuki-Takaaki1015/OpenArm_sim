@@ -29,3 +29,7 @@ ROSのサービスが応答しない場合でも、コンテナ内の監督プ�
 6回のROS軌道Action成功、GUI再起動後の5コントローラーactiveを確認。
 12秒分の単体往復試験では右腕の最大速度が約14.50から0.52 rad/sに改善しました。
 この検証は全姿勢・全衝突条件での安定性を保証するものではありません。
+
+## Arm motion speed
+
+MoveIt starts with velocity and acceleration scaling of 0.5 instead of its 0.1 fallback. Arm limits are 1.0 rad/s and 1.6 rad/s²; the MuJoCo reference slew limit matches 1.0 rad/s. Finger limits and actuator force limits are unchanged. Adjust Velocity Scaling and Accel. Scaling in RViz for individual plans. These are simulation settings, not validated hardware limits.

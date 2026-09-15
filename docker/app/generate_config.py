@@ -44,7 +44,7 @@ def body(b,parent):
         assert np.allclose(m.jnt_pos[j],0), 'Nonzero joint anchor not implemented'
         finger='finger' in jname
         effort=20 if finger else (40 if jname.endswith(('joint1','joint2')) else 27 if jname.endswith(('joint3','joint4')) else 7)
-        velocity=0.02 if finger else 0.5
+        velocity=0.02 if finger else 1.0
         joint=E.SubElement(robot,'joint',name=jname,type='prismatic' if finger else 'revolute')
         E.SubElement(joint,'axis',xyz=vec(m.jnt_axis[j]))
         E.SubElement(joint,'limit',lower=str(m.jnt_range[j,0]),upper=str(m.jnt_range[j,1]),effort=str(effort),velocity=str(velocity))
@@ -54,7 +54,7 @@ def body(b,parent):
         for state in ('position','velocity','effort'):
             st=E.SubElement(ctl,'state_interface',name=state)
             if state=='position': E.SubElement(st,'param',name='initial_value').text='0.0'
-        joint_limits[jname]={'has_velocity_limits':True,'max_velocity':velocity,'has_acceleration_limits':True,'max_acceleration':0.05 if finger else 0.8}
+        joint_limits[jname]={'has_velocity_limits':True,'max_velocity':velocity,'has_acceleration_limits':True,'max_acceleration':0.05 if finger else 1.6}
     else: joint=E.SubElement(robot,'joint',name=name+'_fixed',type='fixed')
     E.SubElement(joint,'parent',link=parent);E.SubElement(joint,'child',link=name)
     origin(joint,m.body_pos[bid],m.body_quat[bid])
@@ -115,7 +115,7 @@ for side in ('left','right'):
 E.indent(robot);E.indent(semantic)
 (OUT/'openarm.urdf').write_text(E.tostring(robot,encoding='unicode'))
 (OUT/'openarm.srdf').write_text(E.tostring(semantic,encoding='unicode'))
-for filename, obj in [('controllers.yaml',controllers),('moveit_controllers.yaml',moveit_controllers),('kinematics.yaml',kinematics),('ompl.yaml',ompl),('joint_limits.yaml',{'joint_limits':joint_limits})]:
+for filename, obj in [('controllers.yaml',controllers),('moveit_controllers.yaml',moveit_controllers),('kinematics.yaml',kinematics),('ompl.yaml',ompl),('joint_limits.yaml',{'default_velocity_scaling_factor':0.5,'default_acceleration_scaling_factor':0.5,'joint_limits':joint_limits})]:
     (OUT/filename).write_text(yaml.safe_dump(obj,sort_keys=False))
 print('Generated model/config:',OUT)
 

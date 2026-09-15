@@ -24,7 +24,7 @@ class Simulation:
         self.position_act = m.actuator_biastype == mujoco.mjtBias.mjBIAS_AFFINE
         self.kp = np.array([250.0 if 'finger' in n else 80.0 for n in self.names])
         self.kd = np.array([5.0 if 'finger' in n else 8.0 for n in self.names])
-        self.speed = np.array([0.02 if 'finger' in n else 0.5 for n in self.names])
+        self.speed = np.array([0.02 if 'finger' in n else 1.0 for n in self.names])
         # Put PD feedback in MuJoCo actuators so implicitfast integrates velocity
         # feedback implicitly, instead of an unstable explicit torque at light joints.
         self.motor_act = ~self.position_act.copy()
