@@ -1,11 +1,12 @@
 # OpenArm_sim
 
 Ubuntu 24.04 / ROS 2 Jazzy / MoveIt 2 / MuJoCoによるOpenArm v1双腕の開発環境。
-Python 3.10以上、Docker Engine（Linuxコンテナ）とCompose v2が必要です。
+Ubuntu 24.04では `bash start.sh` が不足するPython・venv・Git・Docker・Composeをインストールします。
+初回はインターネット接続とsudo権限が必要です。GitがなければリポジトリのZIPをダウンロード・展開しても構いません。
 対象はamd64。Ubuntu 24.04のVMで検証し、他OS・GPU実機は未検証です。
 
 ```bash
-python3 start.py
+bash start.sh
 ```
 
 OS・Docker・メモリー・venvをチェックし、初回はDockerをビルドします。
@@ -20,11 +21,11 @@ GUIセッションがないServer/SSH環境ではブラウザー表示を使用�
 Desktop/Serverのインストール名ではなく、接続できるGUIセッションで判定します。
 
 ```bash
-python3 start.py --headless           # GUIなしの開発用
-python3 start.py --cpu                # CPU描画を指定
-python3 start.py --display browser    # ブラウザー表示を指定
-python3 start.py --display native     # ホストGUI必須
-python3 start.py --stop
+bash start.sh --headless           # GUIなしの開発用
+bash start.sh --cpu                # CPU描画を指定
+bash start.sh --display browser    # ブラウザー表示を指定
+bash start.sh --display native     # ホストGUI必須
+bash start.sh --stop
 ```
 
 ブラウザー: http://localhost:6080/vnc.html?autoconnect=true&resize=scale
@@ -41,7 +42,7 @@ MuJoCoは左ドラッグで視点回転、右ドラッグで移動、ホイー�
 ## 短い開発コマンド
 
 ```bash
-python3 install_shell.py
+bash start.sh --setup-only  # 通常起動でも自動登録
 source ~/.bashrc
 
 oa                          # ROS環境付きコンテナ内ターミナル
@@ -68,12 +69,29 @@ D435は公式マウントの寸法に基づき取り付けます。高さ740 mm�
 依存パッケージやモデルのライセンスはdocker/THIRD_PARTY.mdとvendor/LICENSEを参照。
 イメージを配布する場合はdocker save/loadを使用できます。公開レジストリへのpushは未実施です。
 
-## VS Codeでの開発
 
-Ubuntu DesktopにVS Codeをインストールし、`python3 install_shell.py` と `source ~/.bashrc` を一度実行します。以後は `oa-code` で実行中のコンテナへ接続したVS Codeが開きます。Dev Containers拡張が未導入の場合は自動インストールします。
+## コンテナ内の開発ワークスペース
 
-`oa-code --check` で接続の前提条件を確認できます。コンテナは先に `python3 start.py` で起動してください。古いコンテナは一度再起動すると開発用フォルダーが共有されます。
+`oa-code` は Docker の `openarm-auto` に接続し、`/workspaces/OpenArm_dev` を開きます。
+VS Code左下にコンテナ接続が表示されます。新しいターミナルで `test -f /.dockerenv && echo container` と `which ros2` を実行して確認できます。
+Git、Python、colcon、C/C++ビルドはコンテナ内で実行されます。
 
-VS Codeで開く `/workspaces/OpenArm_sim` は、起動したホスト側チェックアウトそのものです。ここで編集したファイルはコンテナを削除・再作成しても残ります。コンテナの `/opt/openarm` へ直接編集した内容はイメージに保存されないため、開発は共有フォルダーで行ってください。シミュレーター本体のソース変更を反映する際は `python3 start.py` で再ビルド・再起動します。
+`src/` に `git clone <repository-url>` で開発リポジトリをクローンします。
+ワークスペース直下で `colcon build --symlink-install`、続いて `source install/setup.bash` を実行します。
+Gitのユーザー名・メールや非公開リポジトリの認証は開発者自身が設定してください。
+ホストのSSH秘密鍵を自動コピーすることはありません。
 
-統合ターミナルの既定プロファイルはOpenArm ROS 2で、ROS環境と `/opt/venv` を使用します。初回の接続時はVS Code Serverのダウンロードが発生します。Ubuntuのデスクトップ端末から実行してください。Windows側VS CodeからのRemote SSH接続はこのコマンドの対象外です。
+ファイルはホストの `<checkout>/.openarm/dev_ws` に保存され、コンテナを作り直しても残ります。
+`src`、`build`、`install`、`log` が永続化されます。`.openarm` を削除すると開発データも消えるので注意してください。
+環境自体のソースは `/workspaces/OpenArm_sim` にもあります。
+`/opt/openarm` の直接編集や共有フォルダー外のデータはコンテナ再作成時に失われます。
+追加のOS依存関係を配布する場合は `docker/Dockerfile` に記述し、`bash start.sh --rebuild` で反映します。
+
+## 初回セットアップ
+
+`bash start.sh --setup-only` でホスト依存関係とシェルコマンド登録までを行えます。
+既存Dockerが使える場合は置き換えません。新規導入はUbuntuのdocker.io / docker-compose-v2を使用します。
+Dockerグループは管理者相当の権限を持ちます。当回の起動はグループを再読み込みし、ログアウトなしで続行します。
+既に開いている別ターミナルでDocker権限エラーになる場合はUbuntuからログアウトしてログインしてください。
+自動インストールはUbuntu 24.04 amd64のみ対象です。VS Code本体の自動導入はこのスクリプトには含めません。
+VS Codeがある場合、`oa-code` がDev Containers拡張を自動導入します。

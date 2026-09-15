@@ -244,7 +244,16 @@ def main():
         docker('stop',NAME);docker('rm',NAME)
     def launch(selected, device_options):
         options=['run','-d','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
-        options += ['--mount', f'type=bind,source={ROOT},target=/workspaces/OpenArm_sim']
+        dev = STATE / 'dev_ws'
+        (dev / 'src').mkdir(parents=True, exist_ok=True)
+        (dev / '.home').mkdir(exist_ok=True)
+        guide = dev / 'README.md'
+        if not guide.exists():
+            guide.write_text('# OpenArm development workspace\n\nCommands run inside Docker. Clone ROS packages into src/, then run colcon build --symlink-install here.\nFiles persist on the host under .openarm/dev_ws.\nSimulation source: /workspaces/OpenArm_sim.\n', encoding='utf-8')
+        options += ['--mount', f'type=bind,source={ROOT},target=/workspaces/OpenArm_sim',
+                    '--mount', f'type=bind,source={dev},target=/workspaces/OpenArm_dev']
+        if system == 'Linux':
+            options += ['--user', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/workspaces/OpenArm_dev/.home', '--workdir', '/workspaces/OpenArm_dev']
         if selected=='cpu':options+=['-p',f'127.0.0.1:{args.port}:6080','-e','LIBGL_ALWAYS_SOFTWARE=1']
         docker(*options,IMAGE,'headless' if selected=='headless' else 'web' if selected=='cpu' else 'native')
         wait_ready(selected,args.port)
@@ -259,7 +268,7 @@ def main():
         mode='cpu'; reason='Native display startup failed; see .openarm/gpu-startup.log'; launch(mode,[])
     (STATE/'environment.json').write_text(json.dumps({'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
     status('OK', 'Headless simulation ready; use oa or oa-ros' if mode=='headless' else 'Native RViz + MuJoCo windows opened' if mode!='cpu' else f'Open http://localhost:{args.port}/vnc.html?autoconnect=true&resize=scale')
-    print('Stop: python3 start.py --stop\nLogs: python3 start.py --logs',flush=True)
+    print('Stop: bash start.sh --stop\nLogs: bash start.sh --logs',flush=True)
 
 if __name__=='__main__':
     try: main()

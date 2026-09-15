@@ -34,6 +34,8 @@ RUN sed -i 's/\r$//' /opt/openarm/scripts/*.sh \
     && dpkg-query -W > /opt/openarm/os-packages.txt \
     && pip freeze > /opt/openarm/python-packages.txt
 RUN apt-get update && apt-get install -y --no-install-recommends mesa-utils python3-tk fonts-noto-cjk libosmesa6 libegl1 && rm -rf /var/lib/apt/lists/*
+# OpenArm development tools
+RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client build-essential cmake python3-colcon-common-extensions python3-rosdep && rm -rf /var/lib/apt/lists/*
 ENV OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml \
     OPENARM_SCENE=/opt/openarm/models/v1/simulation_scene.xml \
     LP_NUM_THREADS=2 \
