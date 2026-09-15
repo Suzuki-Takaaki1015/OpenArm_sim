@@ -30,7 +30,7 @@ def generate_launch_description():
     ready=ExecuteProcess(cmd=['python','/opt/openarm/app/wait_ready.py'],output='screen')
     def after_ready(event, context):
         return [spawn] if event.returncode == 0 else [EmitEvent(event=Shutdown(reason='MuJoCo startup failed'))]
-    actions=[DeclareLaunchArgument('gui',default_value='false'),sim,rsp,cm,move,rviz,camera,objects,panel,ready,RegisterEventHandler(OnProcessExit(target_action=ready,on_exit=after_ready))]
+    actions=[DeclareLaunchArgument('gui',default_value='false'),sim,rsp,cm,move,rviz,camera,objects,ready,RegisterEventHandler(OnProcessExit(target_action=ready,on_exit=after_ready))]
     for critical in [sim,cm,move,objects]:
         actions.append(RegisterEventHandler(OnProcessExit(target_action=critical,on_exit=[EmitEvent(event=Shutdown(reason='Required node exited'))])))
     return LaunchDescription(actions)

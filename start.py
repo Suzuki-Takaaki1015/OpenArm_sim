@@ -102,7 +102,11 @@ def gpu_candidates(system, endpoint):
         return [], reason
     choices = []
     if shutil.which('nvidia-smi'):
-        choices.append(('NVIDIA', ['--gpus', 'all', '-e', 'NVIDIA_DRIVER_CAPABILITIES=graphics,display,utility', *shared]))
+        runtimes = json.loads(docker('info', '--format', '{{json .Runtimes}}').stdout)
+        runtime = ['--runtime', 'nvidia'] if 'nvidia' in runtimes else []
+        if not runtime:
+            status('WARN', 'NVIDIA Container Toolkit/runtime is not configured on the host; see scripts/setup_nvidia.sh')
+        choices.append(('NVIDIA', [*runtime, '--gpus', 'all', '-e', 'NVIDIA_DRIVER_CAPABILITIES=graphics,display,utility', *shared]))
     dri = Path('/dev/dri')
     if dri.is_dir():
         groups = sorted({p.stat().st_gid for p in dri.iterdir() if p.name.startswith(('renderD','card'))})
@@ -243,7 +247,7 @@ def main():
     if old:
         docker('stop',NAME);docker('rm',NAME)
     def launch(selected, device_options):
-        options=['run','-d','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
+        options=['run','-d','-e',f'LP_NUM_THREADS={min(8, os.cpu_count() or 2)}','-e','OPENARM_VIEWER_FPS=60','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
         dev = STATE / 'dev_ws'
         (dev / 'src').mkdir(parents=True, exist_ok=True)
         (dev / '.home').mkdir(exist_ok=True)

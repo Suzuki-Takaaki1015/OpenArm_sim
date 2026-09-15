@@ -95,3 +95,5 @@ Dockerグループは管理者相当の権限を持ちます。当回の起動�
 既に開いている別ターミナルでDocker権限エラーになる場合はUbuntuからログアウトしてログインしてください。
 自動インストールはUbuntu 24.04 amd64のみ対象です。VS Code本体の自動導入はこのスクリプトには含めません。
 VS Codeがある場合、`oa-code` がDev Containers拡張を自動導入します。
+
+GPU設定・制御改善・GUI再起動の説明は [PERFORMANCE.md](PERFORMANCE.md) を参照してください。

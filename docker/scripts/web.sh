@@ -23,7 +23,7 @@ x11vnc -display :99 -localhost -rfbport 5900 -forever -shared -nopw &
 pids+=("$!")
 websockify --web=/usr/share/novnc 6080 localhost:5900 &
 pids+=("$!")
-ros2 launch /opt/openarm/app/simulation.launch.py gui:=true &
+python /opt/openarm/app/supervisor.py --gui &
 pids+=("$!")
 echo 'Open http://localhost:6080/vnc.html?autoconnect=true&resize=scale'
 # If any essential process exits, shut down the entire container.

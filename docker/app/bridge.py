@@ -25,6 +25,7 @@ class Bridge(Node):
         self.sim = Simulation()
         self.objects = DynamicObjects(self.sim)
         self.obstacles_enabled = False
+        self.performance = {"real_time_factor": 0.0}
         self.snapshot_pub = self.create_publisher(String, "/openarm/sim_state", 2)
         self.create_service(Trigger, "/openarm/scene/status", self.scene_status)
         for key in ITEMS:
@@ -33,13 +34,13 @@ class Bridge(Node):
         self.create_service(SetBool, '/openarm/set_obstacles', self.set_obstacles)
         self.states = self.create_publisher(JointState, '/mujoco/joint_states', 10)
         self.clock = self.create_publisher(Clock, '/clock', 10)
-        self.create_subscription(JointState, '/mujoco/joint_commands', self.command, 10)
+        self.create_subscription(JointState, '/mujoco/joint_commands', self.command, 1)
         # Restart the stack to reset time; controller trajectories must reset together.
         self.get_logger().info('Ready: /mujoco/joint_commands; ' + ', '.join(self.sim.names))
 
     def scene_status(self, request, response):
         response.success = True
-        response.message = json.dumps({'obstacles':self.obstacles_enabled,'objects':self.objects.active})
+        response.message = json.dumps({'obstacles':self.obstacles_enabled,'objects':self.objects.active,'performance':self.performance})
         return response
 
     def set_object(self, key, request, response):
@@ -151,6 +152,9 @@ def main():
                 viewer.cam.distance = 1.5
                 viewer.cam.azimuth = 135
                 viewer.cam.elevation = -20
+            next_frame = time.monotonic()
+            perf_wall = time.monotonic()
+            perf_sim = node.sim.data.time
             tick = 0
             deadline = time.monotonic()
             while rclpy.ok() and (viewer is None or viewer.is_running()):
@@ -159,10 +163,15 @@ def main():
                 tick += 1
                 if tick % 5 == 0:
                     node.publish_state()
+                if tick % 500 == 0:
+                    now = time.monotonic()
+                    node.performance['real_time_factor'] = (node.sim.data.time-perf_sim)/max(now-perf_wall,1e-6)
+                    perf_wall,perf_sim = now,node.sim.data.time
                 if tick % 100 == 0:
                     node.snapshot()
-                if viewer and tick % 16 == 0:
+                if viewer and time.monotonic() >= next_frame:
                     viewer.sync()
+                    next_frame = time.monotonic() + 1.0 / float(os.environ.get('OPENARM_VIEWER_FPS','60'))
                 deadline += node.sim.model.opt.timestep
                 delay = deadline - time.monotonic()
                 if delay > 0:

@@ -25,6 +25,24 @@ class Simulation:
         self.kp = np.array([250.0 if 'finger' in n else 80.0 for n in self.names])
         self.kd = np.array([5.0 if 'finger' in n else 8.0 for n in self.names])
         self.speed = np.array([0.02 if 'finger' in n else 0.5 for n in self.names])
+        # Put PD feedback in MuJoCo actuators so implicitfast integrates velocity
+        # feedback implicitly, instead of an unstable explicit torque at light joints.
+        self.motor_act = ~self.position_act.copy()
+        for a, j in enumerate(self.act_joint):
+            if self.motor_act[a]:
+                m.actuator_gaintype[a] = mujoco.mjtGain.mjGAIN_FIXED
+                m.actuator_biastype[a] = mujoco.mjtBias.mjBIAS_AFFINE
+                m.actuator_gainprm[a, 0] = self.kp[j]
+                m.actuator_biasprm[a, :3] = [0, -self.kp[j], -self.kd[j]]
+                # Original ctrl range represented torque. Keep that physical limit
+                # on actuator force while ctrl now represents a position target.
+                limits = []
+                if m.actuator_forcelimited[a]: limits.append(m.actuator_forcerange[a].copy())
+                if m.actuator_ctrllimited[a]: limits.append(m.actuator_ctrlrange[a].copy())
+                if not limits: limits = [np.array([-20., 20.])]
+                m.actuator_forcelimited[a] = 1
+                m.actuator_forcerange[a] = [max(v[0] for v in limits), min(v[1] for v in limits)]
+                m.actuator_ctrllimited[a] = 0
         self.reset()
 
     def reset(self):
@@ -53,16 +71,10 @@ class Simulation:
         m, d = self.model, self.data
         limit = self.speed * m.opt.timestep
         self.reference += np.clip(self.target - self.reference, -limit, limit)
-        # Feedforward bias compensation plus PD; MuJoCo still integrates dynamics.
-        torque = (self.kp * (self.reference - d.qpos[self.qadr])
-                  - self.kd * d.qvel[self.dadr] + d.qfrc_bias[self.dadr])
         for a, j in enumerate(self.act_joint):
-            if self.position_act[a]:
-                control = self.reference[j]
-            else:
-                control = torque[j]
-                force_range = m.actuator_forcerange[a] if m.actuator_forcelimited[a] else (-20, 20)
-                control = np.clip(control, *force_range)
+            control = self.reference[j]
+            if self.motor_act[a]:
+                control += d.qfrc_bias[self.dadr[j]] / self.kp[j]
             if m.actuator_ctrllimited[a]:
                 control = np.clip(control, *m.actuator_ctrlrange[a])
             d.ctrl[a] = control
