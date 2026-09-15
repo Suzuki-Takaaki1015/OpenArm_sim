@@ -1,137 +1,69 @@
 # OpenArm_sim
 
-OpenArm v1双腕 / Ubuntu 24.04 / ROS 2 Jazzy / MoveIt 2 / MuJoCo。
-
-## クローン後の実行
-
-Python 3.10以上と、起動済みのDockerとCompose v2が必要です。Ubuntuではpython3-venvも用意します。
-ROSやMuJoCoのホスト側インストールは不要です。
+Ubuntu 24.04 / ROS 2 Jazzy / MoveIt 2 / MuJoCoによるOpenArm v1双腕の開発環境。
+Python 3.10以上、Docker Engine（Linuxコンテナ）とCompose v2が必要です。
+対象はamd64。Ubuntu 24.04のVMで検証し、他OS・GPU実機は未検証です。
 
 ```bash
 python3 start.py
 ```
 
-Windowsでは `py -3 start.py` を使います。Linuxコンテナモードが必要です。
-ランチャーがOS、DockerのCPUアーキテクチャとメモリー、venv、イメージ、GPU描画、
-ROSの5コントローラーを順に確認し、[CHECK] / [OK] / [WARN] / [FAIL]で進捗を表示します。
-初回ビルドはネット接続と数GBのダウンロードが必要です。ログは `.openarm/build.log`。
-ソース変更を検出すると自動で再ビルドします。通常の2回目以降はイメージを再利用します。
+OS・Docker・メモリー・venvをチェックし、初回はDockerをビルドします。
+2回目以降はソースが変わらなければ既存イメージを再利用します。
+ホストの.venvはランチャー用、ROS/MuJoCoの環境はコンテナの/opt/venvです。
 
-`.venv` は標準ライブラリーだけのランチャー専用環境です。
-シミュレーション用venvはDocker内の `/opt/venv` に作られ、MuJoCoなどを格納します。
-Docker・GPUドライバー・管理者設定を勝手にインストール/変更することはありません。
-不足時には必要な操作を表示します。
+## 表示と負荷
 
-## GPUとCPUの選択
-
-- Linux + ローカルDocker Engine + X11/XWaylandセッションで、NVIDIAまたはMesaのGPUを候補にします。
-- 同じコンテナ・ユーザー・デバイス・X認証でglxinfoを実行し、ハードウェアOpenGLを確認します。
-- GPU時はホストのデスクトップにRVizとMuJoCoのウィンドウを表示します。
-- GPUが使えない場合はCPU描画へ切り替えます。表示先はGPUとは独立して判定します。
-- ブラウザー表示時は http://localhost:6080/vnc.html?autoconnect=true&resize=scale を開きます。
-- SSH端末にDISPLAYがなければブラウザー表示を選びます。ホストGUI表示はLinuxデスクトップの端末から実行してください。
-- NVIDIAはホストドライバーとNVIDIA Container Toolkitが必要です。未設定時はCPUへ切り替えます。
-- GPUは描画を高速化します。今回のMuJoCo物理演算はCPUです（MJXへの変更ではありません）。
-- Windows Docker Desktop、Intel MacはCPUブラウザー表示を使います。この構成ではWSL2のCUDA対応だけでOpenGL利用可能とは判定しません。
-- ARM64 / Apple Silicon / リモートDockerは未対応として明示的に停止します。
-- VMwareで物理GPUがゲストへ見えない場合もCPUで実行できます。
+Desktopの利用可能なX11/XWaylandセッションではホストGUIに表示。
+GPUのOpenGL検査が通ればGPU描画、通らなければCPU描画です。
+GUIセッションがないServer/SSH環境ではブラウザー表示を使用します。
+Desktop/Serverのインストール名ではなく、接続できるGUIセッションで判定します。
 
 ```bash
-python3 start.py --cpu                 # CPUを指定
-python3 start.py --gpu                 # GPU必須。使用できなければ停止
-python3 start.py --check               # チェック・ビルド・GPU検査まで
-python3 start.py --port 6081           # CPU画面のポート変更
-python3 start.py --rebuild             # 再ビルド
-python3 start.py --logs                # ログ表示
-python3 start.py --stop                # 停止
+python3 start.py --headless           # GUIなしの開発用
+python3 start.py --cpu                # CPU描画を指定
+python3 start.py --display browser    # ブラウザー表示を指定
+python3 start.py --display native     # ホストGUI必須
+python3 start.py --stop
 ```
 
-ランチャー専用のコンテナ名は `openarm-auto` です。同じ名前を他のクローンが使用している場合は停止しません。
-再実行すると自分のコンテナを再作成し、ロボットの姿勢も初期化します。
-表示ポートは127.0.0.1のみ。GPU時は必要なGPUデバイスとX11ソケット、認証ファイルを共有します。
-`xhost +` やprivilegedは使用しません。
+ブラウザー: http://localhost:6080/vnc.html?autoconnect=true&resize=scale
+物理計算はCPU。GPUは描画用です。カメラも初期OFFで、必要な時だけGUIから配信します。
 
-## ROS操作・検証
+## GUIの操作
 
-```bash
-docker exec -it openarm-auto /opt/openarm/scripts/entrypoint.sh bash
-# 上記ターミナル内
-ros2 control list_controllers
-# ホストからMoveItの実行検証
-docker exec openarm-auto /opt/openarm/scripts/entrypoint.sh python /opt/openarm/app/check_moveit.py --existing
-```
+シーンパネルで作業台・固定障害物、直方体、500 mLボトル、D435配信を操作できます。
+物体を配置すると机も有効になります。机を消す前に把持対象を削除してください。
+RVizはInteractを選び、MotionPlanning / Planning Request / Query Goal Stateを有効化し、
+手先マーカーを動かしてPlan、Executeします。カメラ回転はMove Cameraで左ドラッグ。
+MuJoCoは左ドラッグで視点回転、右ドラッグで移動、ホイールで拡大縮小します。
 
-RVizでPlanning Groupを選択し、手先を動かしてPlan、Executeで実行します。
-詳細は [Docker操作手順](docker/README.md)、既存の物理/MoveIt検証は [検証記録](docker/VALIDATION.md)。
-ランチャーの実機検証範囲はLAUNCHER_VALIDATION.mdを参照してください。
-
-公式資料: [Docker](https://docs.docker.com/engine/install/ubuntu/)、
-[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)、
-[Docker Desktop GPUの範囲](https://docs.docker.com/desktop/features/gpu/)。
-
-## 表示先の自動判定
-
-通常は `python3 start.py` だけで判定します。
-Desktop版で利用可能なX11/XWaylandセッションがあれば、GPUの有無に関係なく
-ホストにRViz・MuJoCoのウィンドウを表示します。GPUが使えなければCPU描画です。
-Server版やGUIセッションのないSSH環境ではnoVNCブラウザー表示を使用します。
-インストール名ではなく、実際のGUI接続・認証・OpenGL利用可否で判定するため、
-Server版へ後からGUIを追加した場合にも対応します。
-
-```bash
-python3 start.py --cpu                  # CPU指定。DesktopならホストGUI
-python3 start.py --display browser      # ブラウザー表示を指定
-python3 start.py --display native       # ホストGUI必須。利用不可なら理由を表示して停止
-```
-
-自動モードでGUI接続に失敗した場合はブラウザーへ切り替えます。
-`--display native` と `--gpu` は利用不可でも黙って切り替えません。
-GPU描画とブラウザー表示の同時指定は未対応です。
-
-## カメラの操作
-
-MuJoCo: 3D画面内で左ドラッグすると周囲を回転。右ドラッグで平行移動、ホイールで拡大縮小。
-RViz: Move Cameraを選び、3D画面内を左ドラッグで回転、中央ドラッグで平行移動、ホイールで拡大縮小。
-ロボット目標のマーカーを動かす時はInteractへ切り替えます。
-回転はモデルの周囲を水平に一周できます。Orbitは上下方向には制限があり、自由なロール回転とは異なります。
-
-## 開発用ショートカットと障害物
-
-Ubuntu/Bashで一度だけ実行:
+## 短い開発コマンド
 
 ```bash
 python3 install_shell.py
 source ~/.bashrc
-```
 
-既存.bashrcはバックアップし、管理用のsource行だけを追加します。繰り返し実行しても重複しません。
-
-```bash
-oa                         # ROS環境付きのコンテナ内Bash（exitで戻る）
-oa-ros node list            # ホストからROSコマンド
+oa                          # ROS環境付きコンテナ内ターミナル
+oa-ros node list
 oa-ros control list_controllers
-oa-scene on                # 固定作業台・障害物を有効化
-oa-scene off               # 表示と接触、MoveItの衝突物体を削除
-oa-scene status            # MoveIt登録状態
-oa-logs                    # コンテナのログ
+oa-scene status
+oa-logs
 ```
 
-スタックを起動してから使用します。障害物は初期状態でoff、再起動でもoffになります。
-切り替えはロボットを停止させ、軌道実行中でないときに行ってください。
-MuJoCoとMoveItへの更新は別サービスなので完全に同時ではありません。
-エラー時は状態を確認してから動かしてください。ロボットに重なる追加は拒否します。
-物体のworld座標・寸法・色はdocker/app/scene_objects.pyに一元管理し、編集後はstart.pyで再ビルドします。
-これは固定障害物です。持ち上げる物体、接触による保持、MoveItのattach/detach、
-把持姿勢生成はまだ含まれません。物理把持の完成を意味しません。
-既存のユーザー作成MoveItオブジェクトは変更せず、openarm_demo_の2物体のみ操作します。
+.bashrcの既存内容を保全し、重複しないsource行を追加します。
+Windowsではpy -3 start.py。Windows/macOSのDockerでの実行は未検証でCPU表示を想定。
+ARM64/Apple SiliconとリモートDockerは未対応として停止します。
+コンテナ名はopenarm-auto。同名を別のクローンが使用中の場合は変更せず停止します。
 
-GUI負荷を避けて開発する場合は `python3 start.py --headless` で起動します。
-この場合もoa、oa-ros、oa-sceneとROSアクションは利用できます。画面は開きません。
+## メンバー向けインターフェース
 
-## シーン操作パネル
+カメラトピック、座標、物体サービス、近似範囲は [ENVIRONMENT.md](ENVIRONMENT.md) を参照。
+**D435の取り付け座標は暫定値です。公式マウントと実機への一致確認は未完了です。**
+認識・把持姿勢生成・自動把持のモジュールは含みません。
+不要な検証スクリプトは配布ツリーから除き、実行に必要なコードだけを同梱します。
+テストを削除しても、wait_ready.pyとgenerate_config.pyは起動に必要なので残しています。
 
-GUI起動ではシーン操作パネルも自動表示します（Desktop、ブラウザー内のGUIとも）。
-「表示する」「非表示にする」で標準の作業台と固定障害物をまとめて切り替えます。
-接触・MoveIt衝突判定も連動するため、腕を停止してから操作してください。
-「状態を確認」でMoveItの登録状態を再取得できます。headlessではパネルを起動しません。
-パネルを閉じても物理シミュレーションは継続します。
+モデルはenactic/openarm_mujocoの固定コミットを使用。
+依存パッケージやモデルのライセンスはdocker/THIRD_PARTY.mdとvendor/LICENSEを参照。
+イメージを配布する場合はdocker save/loadを使用できます。公開レジストリへのpushは未実施です。

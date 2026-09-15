@@ -1,0 +1,30 @@
+{
+  "model": "D435",
+  "mount": "official v1 chest mount; assembly transform provisional",
+  "calibration_verified": false,
+  "parent_frame": "openarm_body_link0",
+  "position_m": [
+    0.08,
+    0.0,
+    0.62
+  ],
+  "rpy_rad": [
+    0.0,
+    0.7853981633974483,
+    0.0
+  ],
+  "color": {
+    "width": 320,
+    "height": 180,
+    "vertical_fov_deg": 42.0
+  },
+  "depth": {
+    "width": 424,
+    "height": 240,
+    "vertical_fov_deg": 58.0
+  },
+  "fps": 2.0,
+  "min_depth_m": 0.2,
+  "max_depth_m": 10.0,
+  "source": "https://github.com/enactic/openarm_hardware/releases/tag/1.1.0"
+}

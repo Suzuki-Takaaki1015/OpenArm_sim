@@ -149,3 +149,6 @@ for obj in OBJECTS:
                  pos=vec(obj['position']), size=vec([v/2 for v in obj['size']]),
                  rgba='0 0 0 0', contype='0', conaffinity='0', friction='1 0.005 0.0001')
 scene.write(SRC.parent/'simulation_scene.xml', encoding='unicode')
+
+from environment_assets import add_assets
+add_assets(SRC.parent/"simulation_scene.xml")

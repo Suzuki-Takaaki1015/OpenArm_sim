@@ -1,7 +1,7 @@
 name: openarm
 services:
   sim:
-    image: ${OPENARM_IMAGE:-openarm-sim:0.2.0}
+    image: ${OPENARM_IMAGE:-openarm-sim:0.4.0}
     build: .
     init: true
     ports:

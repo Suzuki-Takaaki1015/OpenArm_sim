@@ -1,42 +1,13 @@
-# 検証記録
+# Environment validation (2026-09-14)
 
-検証環境: VMware / Ubuntu 24.04 amd64、約8 GB RAM。
-構成: ROS 2 Jazzy、MoveIt 2、ros2_control、MuJoCo 3.3.4、OpenArm v1双腕。
-モデル固定コミット: 161039cd74ea8675fb8197836fe5674659825c75。
+Ubuntu 24.04 VMware, 4 vCPUs, 7.7 GiB RAM, CPU rendering.
 
-## 成功した検証
+- All five ROS controllers active; 18 robot joints remain independent of object free joints.
+- Box and bottle settle onto the table and move under applied force.
+- GUI placement, removal, random repositioning and camera stop checked.
+- RGB, raw depth, aligned depth, CameraInfo and static TF received.
+- Dynamic object poses appear in the MoveIt planning scene.
+- Camera uses ideal simulated optics. Official chest mount assembly transform is NOT calibrated; camera_config.json marks this explicitly.
+- End-to-end visual recognition and autonomous grasping are not included or validated.
 
-- Ubuntu VM上でDockerイメージのビルド。
-- 物理テスト3件: 姿勢保持と追従、不正指令の一括拒否、内部リセット。
-- URDFとMuJoCoの全リンク座標を12姿勢で比較: 最大差6.66e-16。
-- 専用の画面なしコンテナでMoveItの計画・実行。
-- GUIスタックで同じMoveIt計画・実行。
-- ネットワークを無効化した新規コンテナで同じ計画・実行。
-- 左右腕の関節目標、右手先の位置・姿勢目標、左右グリッパー開閉を検証。
-- 判定にはMuJoCoから読み出した状態を使用。アクションの成功応答だけでは判定しない。
-
-GUIでの測定例: 手先位置誤差2.54 mm、姿勢誤差0.0201 rad。
-腕の最大関節誤差0.00108 rad未満、グリッパーの最大誤差4.21 mm。
-グリッパー閉方向には接触や制御方式の影響があり、精密把持を保証する値ではない。
-検証ログとJSONは配布のevidenceディレクトリに保存。
-
-## 制約
-
-GUIと検証を同時実行した時のメモリー使用量は約3 GB。
-ソフトウェア描画では複数CPUコアを使用し、実時間より遅くなる場合がある。
-全可動域、物体把持、床との接触、実機、異なるOSやARM64は未検証。
-別の物理PCへの持ち込み検証は未実施。確認範囲は同じVM内の独立したコンテナ。
-ビルド依存の完全固定や同一バイトの再ビルドは保証しないため、配布は保存済みイメージを使用する。
-
-ブラウザーでHTTP 200、noVNC接続、JavaScriptエラーなしを確認。
-表示完了後の画像でRVizとMuJoCoが左右に並び、両モデルが描画されることを目視確認。
-最終起動時の測定例はCPU約261%、メモリー約3.75 GiB（負荷により変動）。
-
-## 配布ファイルの確認
-
-保存済みtar.gzのgzip整合性検査、同じVMでのdocker load、
-読み戻した最終イメージの物理テスト3件が成功（GUI同時稼働時61.0秒）。
-Windowsへコピー後のSHA-256はVM側と一致。別PCでの検証ではない。
-イメージアーカイブは815,722,107 bytes。正確なハッシュはSHA256SUMSを参照。
-最終ビルドでは文書更新と未使用検証スクリプトの削除のみ行い、動作コードは
-GUI・ネットワークなし検証時と同一。
+Validation scripts are outside the distributed repository. Removed historical scripts are backed up under /home/mignon/openarm-validation-archive/20260914-182208 on the development VM.

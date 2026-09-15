@@ -15,7 +15,7 @@ import venv
 
 ROOT = Path(__file__).resolve().parent
 STATE = ROOT / '.openarm'
-IMAGE = 'openarm-sim:0.3.0'
+IMAGE = 'openarm-sim:0.4.0'
 NAME = 'openarm-auto'
 LABEL = 'org.openarm.launcher'
 

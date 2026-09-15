@@ -1,80 +1,62 @@
-"""Small non-blocking desktop control panel for the built-in obstacle scene."""
-import argparse
-import queue
-import subprocess
-import sys
-import threading
+"""Desktop scene controls; runtime only, no embedded test runner."""
+import json,queue,subprocess,sys,threading
+from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
-from pathlib import Path
 
 class ScenePanel:
-    def __init__(self, root):
-        self.root=root;self.results=queue.Queue();self.busy=False;self.last_mode=None;self.last_ok=False
-        root.title('OpenArm - シーン操作');root.geometry('480x370');root.minsize(440,350)
-        style=ttk.Style();style.configure('TLabel',font=('Noto Sans CJK JP',11));style.configure('TButton',font=('Noto Sans CJK JP',11),padding=8)
-        frame=ttk.Frame(root,padding=20);frame.pack(fill='both',expand=True)
-        ttk.Label(frame,text='シミュレーションのシーン',font=('Noto Sans CJK JP',16,'bold')).pack(anchor='w')
-        ttk.Label(frame,text='標準シーン：作業台 ＋ 固定障害物').pack(anchor='w',pady=(16,5))
-        ttk.Label(frame,text='表示すると、MoveItの衝突判定と\nMuJoCoの物理接触も有効になります。').pack(anchor='w')
-        self.state=tk.StringVar(value='ROSへの接続を確認しています…')
-        ttk.Label(frame,textvariable=self.state,wraplength=420).pack(anchor='w',pady=16)
+    def __init__(self,root):
+        self.root=root;self.queue=queue.Queue();self.busy=False;self.buttons=[]
+        root.title('OpenArm - シーン・カメラ');root.geometry('610x660');root.minsize(610,660)
+        style=ttk.Style();style.configure('TLabel',font=('Noto Sans CJK JP',10));style.configure('TButton',font=('Noto Sans CJK JP',10),padding=7)
+        frame=ttk.Frame(root,padding=18);frame.pack(fill='both',expand=True)
+        ttk.Label(frame,text='シーンとD435カメラ',font=('Noto Sans CJK JP',17,'bold')).pack(anchor='w')
+        self.group(frame,'作業台・固定障害物',[('表示','on'),('非表示','off')])
+        self.group(frame,'把持対象：直方体（100 g）',[('配置','box-on'),('削除','box-off'),('ランダム再配置','box-reposition')])
+        self.group(frame,'把持対象：500 mLボトル（満水相当・近似剛体）',[('配置','bottle-on'),('削除','bottle-off'),('ランダム再配置','bottle-reposition')])
+        self.group(frame,'胸部D435：RGB・深度・CameraInfo・TF',[('配信開始','camera-on'),('配信停止','camera-off')])
+        ttk.Label(frame,text='カメラは初期OFF・2 fps。取り付け座標は実機合わせ前の暫定値です。',wraplength=570).pack(anchor='w',pady=(4,8))
         row=ttk.Frame(frame);row.pack(fill='x')
-        self.buttons=[]
-        for text,mode in [('表示する','on'),('非表示にする','off'),('状態を確認','status')]:
-            button=ttk.Button(row,text=text,command=lambda mode=mode:self.request(mode));button.pack(side='left',padx=(0,8));self.buttons.append(button)
-        ttk.Label(frame,text='切り替えは腕を停止させてから行ってください。\n固定物体です。持ち上げる把持対象ではありません。',wraplength=420).pack(anchor='w',pady=(16,0))
-        self.detail=tk.StringVar(value='このパネルを閉じてもシミュレーションは継続します。')
-        ttk.Label(frame,textvariable=self.detail,wraplength=420,font=('Noto Sans CJK JP',9)).pack(anchor='w',pady=(8,0))
-        root.after(100,self.poll);root.after(200,lambda:self.request('status'))
-
-    def request(self, mode):
+        self.button(row,'状態を更新','status')
+        self.state=tk.StringVar(value='ROSへ接続中…')
+        ttk.Label(frame,textvariable=self.state,wraplength=560).pack(anchor='w',pady=(10,3))
+        self.detail=tk.StringVar(value='')
+        ttk.Label(frame,textvariable=self.detail,wraplength=560,font=('Noto Sans CJK JP',9)).pack(anchor='w')
+        ttk.Label(frame,text='配置・削除は腕を止めてから。配置時は机も自動で有効になります。\n物体を削除してから机を非表示にしてください。\n認識・自動把持プログラムは含みません。',wraplength=560).pack(anchor='w',pady=(12,0))
+        root.after(100,self.poll);root.after(300,lambda:self.request('status'))
+    def button(self,parent,label,action):
+        b=ttk.Button(parent,text=label,command=lambda:self.request(action));b.pack(side='left',padx=(0,8));self.buttons.append(b)
+    def group(self,parent,title,actions):
+        group=ttk.LabelFrame(parent,text=title,padding=8);group.pack(fill='x',pady=(10,0))
+        for label,action in actions:self.button(group,label,action)
+    def request(self,action):
         if self.busy:return
-        self.busy=True;self.last_mode=None
-        for button in self.buttons:button.state(['disabled'])
-        self.state.set('状態を確認中…' if mode=='status' else 'シーンを更新中…')
-        self.detail.set('応答を待っています。初期化中は少し時間がかかります。')
-        def work():
+        self.busy=True
+        for b in self.buttons:b.state(['disabled'])
+        self.state.set('処理中…');self.detail.set('初期化中は応答まで時間がかかる場合があります。')
+        def worker():
             try:
-                result=subprocess.run([sys.executable,str(Path(__file__).with_name('scene_cli.py')),mode],capture_output=True,text=True,timeout=100)
-                self.results.put((mode,result.returncode==0,(result.stdout+result.stderr).strip()))
-            except Exception as exc:self.results.put((mode,False,str(exc)))
-        threading.Thread(target=work,daemon=True).start()
-
+                r=subprocess.run([sys.executable,str(Path(__file__).with_name('scene_cli.py')),action],capture_output=True,text=True,timeout=180)
+                self.queue.put((action,r.returncode==0,(r.stdout+r.stderr).strip()))
+            except Exception as exc:self.queue.put((action,False,str(exc)))
+        threading.Thread(target=worker,daemon=True).start()
     def poll(self):
-        try:
-            mode,ok,text=self.results.get_nowait()
+        try:action,ok,text=self.queue.get_nowait()
         except queue.Empty:pass
         else:
-            self.busy=False;self.last_mode=mode;self.last_ok=ok
-            for button in self.buttons:button.state(['!disabled'])
-            if ok:
-                if mode=='status':
-                    state='非表示' if text.endswith('off') else '表示中' if 'openarm_demo_table' in text and 'openarm_demo_obstacle' in text else '一部のみ登録'
-                    self.state.set('MoveIt登録状態：'+state)
-                else:self.state.set('表示中：表示・接触・衝突判定が有効' if mode=='on' else '非表示：接触・衝突判定は無効')
-                self.detail.set('操作完了。最新状態は「状態を確認」で再取得できます。')
+            self.busy=False
+            for b in self.buttons:b.state(['!disabled'])
+            if not ok:self.state.set('操作できませんでした');self.detail.set(text[-300:])
+            elif action=='status':
+                try:
+                    d=json.loads(text);s=d['scene'];c=d['camera'];mark=lambda v:'ON' if v else 'OFF'
+                    self.state.set(f'机 {mark(s["obstacles"])} ／ 直方体 {mark(s["objects"]["box"])} ／ ボトル {mark(s["objects"]["bottle"])} ／ カメラ {mark(c["enabled"])}')
+                    self.detail.set(c.get('error','') or '状態を取得しました。')
+                except Exception:self.state.set('状態取得に失敗');self.detail.set(text[-300:])
             else:
-                self.state.set('操作できませんでした。状態を確認して再試行してください。')
-                self.detail.set(text[-220:])
-                print(text,file=sys.stderr,flush=True)
+                self.state.set('操作完了');self.detail.set(text)
+                self.root.after(100,lambda:self.request('status'))
         self.root.after(100,self.poll)
 
-def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--self-test',action='store_true');args=parser.parse_args()
-    root=tk.Tk();panel=ScenePanel(root)
-    if args.self_test:
-        stages=iter(['on','off']); outcome=[False]
-        def advance():
-            if panel.last_mode and not panel.busy:
-                if not panel.last_ok:root.destroy();return
-                try:panel.request(next(stages))
-                except StopIteration:outcome[0]=True;root.destroy();return
-            root.after(200,advance)
-        root.after(300,advance);root.after(180000,root.destroy)
-        root.mainloop()
-        if not outcome[0]:raise SystemExit('Panel integration test failed')
-        print('PASS: GUI status, enable, disable via live ROS services')
-    else:root.mainloop()
-
-if __name__=='__main__':main()
+if __name__=='__main__':
+    root=tk.Tk();ScenePanel(root);root.mainloop()

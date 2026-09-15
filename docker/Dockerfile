@@ -27,13 +27,13 @@ COPY vendor/MODEL_REVISION /opt/openarm/models/MODEL_REVISION
 COPY app /opt/openarm/app
 COPY scripts /opt/openarm/scripts
 RUN OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml python /opt/openarm/app/generate_config.py
-COPY README.md THIRD_PARTY.md /opt/openarm/
+COPY README.md ENVIRONMENT.md THIRD_PARTY.md /opt/openarm/
 RUN sed -i 's/\r$//' /opt/openarm/scripts/*.sh \
     && chmod +x /opt/openarm/scripts/*.sh \
     && useradd --create-home --uid 10001 sim \
     && dpkg-query -W > /opt/openarm/os-packages.txt \
     && pip freeze > /opt/openarm/python-packages.txt
-RUN apt-get update && apt-get install -y --no-install-recommends mesa-utils python3-tk fonts-noto-cjk && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends mesa-utils python3-tk fonts-noto-cjk libosmesa6 libegl1 && rm -rf /var/lib/apt/lists/*
 ENV OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml \
     OPENARM_SCENE=/opt/openarm/models/v1/simulation_scene.xml \
     LP_NUM_THREADS=2 \

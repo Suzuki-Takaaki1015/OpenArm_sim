@@ -11,15 +11,13 @@ class Simulation:
         self.model.opt.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
         self.data = mujoco.MjData(self.model)
         m = self.model
+        self.joint_ids = np.array([j for j in range(m.njnt) if m.jnt_type[j] in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE) and (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT,j) or '').startswith('openarm_')],dtype=int)
         self.names = [mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, j)
-                      for j in range(m.njnt)]
-        if any(t not in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE)
-               for t in m.jnt_type):
-            raise ValueError('Only the fixed-base v1 model is supported')
+                      for j in self.joint_ids]
         self.index = {name: j for j, name in enumerate(self.names)}
-        self.qadr = m.jnt_qposadr.copy()
-        self.dadr = m.jnt_dofadr.copy()
-        self.act_joint = m.actuator_trnid[:, 0].copy()
+        self.qadr = m.jnt_qposadr[self.joint_ids].copy()
+        self.dadr = m.jnt_dofadr[self.joint_ids].copy()
+        self.act_joint = np.array([list(self.joint_ids).index(int(j)) for j in m.actuator_trnid[:, 0]])
         if (np.any(m.actuator_trntype != mujoco.mjtTrn.mjTRN_JOINT)
                 or not np.allclose(m.actuator_gear[:, 0], 1)):
             raise ValueError('Unsupported actuator transmission')
@@ -43,8 +41,8 @@ class Simulation:
             if name not in self.index or not np.isfinite(value):
                 raise ValueError(f'Unknown joint or nonfinite position: {name}')
             j = self.index[name]
-            if self.model.jnt_limited[j]:
-                lo, hi = self.model.jnt_range[j]
+            if self.model.jnt_limited[self.joint_ids[j]]:
+                lo, hi = self.model.jnt_range[self.joint_ids[j]]
                 if not lo - 1e-5 <= value <= hi + 1e-5:
                     raise ValueError(f'{name}: {value} outside [{lo}, {hi}]')
                 value = float(np.clip(value, lo, hi))

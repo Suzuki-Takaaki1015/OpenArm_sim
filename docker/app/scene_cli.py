@@ -1,20 +1,21 @@
 """Toggle fixed demo obstacles in MuJoCo and MoveIt; run while robot is stopped."""
 import argparse
+import json
 import rclpy
 from rclpy.node import Node
 from moveit_msgs.msg import CollisionObject, PlanningScene, PlanningSceneComponents
 from moveit_msgs.srv import ApplyPlanningScene, GetPlanningScene
 from shape_msgs.msg import SolidPrimitive
 from geometry_msgs.msg import Pose
-from std_srvs.srv import SetBool
+from std_srvs.srv import SetBool, Trigger
 from scene_objects import OBJECTS
 
 def call(node, kind, name, request):
     client=node.create_client(kind,name)
     try:
-        if not client.wait_for_service(timeout_sec=15):raise RuntimeError(f'Service unavailable: {name}')
+        if not client.wait_for_service(timeout_sec=60):raise RuntimeError(f'Service unavailable: {name}')
         future=client.call_async(request)
-        rclpy.spin_until_future_complete(node,future,timeout_sec=15)
+        rclpy.spin_until_future_complete(node,future,timeout_sec=60)
         if not future.done():raise RuntimeError(f'Service timed out: {name}; check scene state before moving robot')
         return future.result()
     finally:node.destroy_client(client)
@@ -41,12 +42,33 @@ def apply(node, enabled):
         raise RuntimeError('MoveIt rejected planning scene')
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status']);args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','box-on','box-off','box-reposition','bottle-on','bottle-off','bottle-reposition','camera-on','camera-off']);args=p.parse_args()
     rclpy.init();node=Node('openarm_scene_cli')
     try:
         ids={o['id'] for o in OBJECTS};before=present(node)
         if args.mode=='status':
-            print('MoveIt demo objects:',', '.join(sorted(ids & before)) or 'off');return
+            scene=call(node,Trigger,'/openarm/scene/status',Trigger.Request())
+            camera=call(node,Trigger,'/openarm/camera/status',Trigger.Request())
+            print(json.dumps({'scene':json.loads(scene.message),'camera':json.loads(camera.message)}));return
+        if args.mode.startswith('camera-'):
+            req=SetBool.Request();req.data=args.mode=='camera-on'
+            result=call(node,SetBool,'/openarm/camera/set_enabled',req)
+            if not result.success:raise RuntimeError(result.message)
+            print(result.message);return
+        if args.mode.startswith(('box-','bottle-')):
+            key,action=args.mode.split('-')
+            if action!='off':
+                req=SetBool.Request();req.data=True
+                result=call(node,SetBool,'/openarm/set_obstacles',req)
+                if not result.success:raise RuntimeError(result.message)
+                apply(node,True)
+            if action=='reposition':
+                result=call(node,Trigger,f'/openarm/objects/{key}/reposition',Trigger.Request())
+            else:
+                req=SetBool.Request();req.data=action=='on'
+                result=call(node,SetBool,f'/openarm/objects/{key}/set_enabled',req)
+            if not result.success:raise RuntimeError(result.message)
+            print(result.message);return
         enabled=args.mode=='on'
         request=SetBool.Request();request.data=enabled
         result=call(node,SetBool,'/openarm/set_obstacles',request)
@@ -62,4 +84,8 @@ def main():
         print(f'Obstacles {args.mode}: MuJoCo visibility/contact + MoveIt collision scene updated')
     finally:node.destroy_node();rclpy.shutdown()
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    try:main()
+    except Exception as exc:
+        import sys
+        print(str(exc),file=sys.stderr);sys.exit(1)

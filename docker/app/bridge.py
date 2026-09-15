@@ -2,6 +2,10 @@
 import argparse
 import os
 import time
+import json
+from std_msgs.msg import String
+from dynamic_objects import DynamicObjects
+from environment_assets import ITEMS
 from contextlib import nullcontext
 
 import rclpy
@@ -19,7 +23,13 @@ class Bridge(Node):
     def __init__(self):
         super().__init__('openarm_mujoco')
         self.sim = Simulation()
+        self.objects = DynamicObjects(self.sim)
         self.obstacles_enabled = False
+        self.snapshot_pub = self.create_publisher(String, "/openarm/sim_state", 2)
+        self.create_service(Trigger, "/openarm/scene/status", self.scene_status)
+        for key in ITEMS:
+            self.create_service(SetBool, f"/openarm/objects/{key}/set_enabled", lambda req,res,key=key: self.set_object(key,req,res))
+            self.create_service(Trigger, f"/openarm/objects/{key}/reposition", lambda req,res,key=key: self.reposition_object(key,req,res))
         self.create_service(SetBool, '/openarm/set_obstacles', self.set_obstacles)
         self.states = self.create_publisher(JointState, '/mujoco/joint_states', 10)
         self.clock = self.create_publisher(Clock, '/clock', 10)
@@ -27,7 +37,40 @@ class Bridge(Node):
         # Restart the stack to reset time; controller trajectories must reset together.
         self.get_logger().info('Ready: /mujoco/joint_commands; ' + ', '.join(self.sim.names))
 
+    def scene_status(self, request, response):
+        response.success = True
+        response.message = json.dumps({'obstacles':self.obstacles_enabled,'objects':self.objects.active})
+        return response
+
+    def set_object(self, key, request, response):
+        try:
+            if request.data and not self.obstacles_enabled:
+                raise ValueError('Enable the table first')
+            self.objects.set_enabled(key, request.data)
+            response.success = True
+            response.message = f'{key}: '+('placed' if request.data else 'removed')
+        except ValueError as exc:
+            response.success = False; response.message = str(exc)
+        return response
+
+    def reposition_object(self, key, request, response):
+        try:
+            if not self.obstacles_enabled: raise ValueError('Enable the table first')
+            self.objects.set_enabled(key, True, reposition=True)
+            response.success=True;response.message=f'{key}: repositioned'
+        except ValueError as exc:response.success=False;response.message=str(exc)
+        return response
+
+    def snapshot(self):
+        msg=String()
+        msg.data=json.dumps({'time':self.sim.data.time,'qpos':self.sim.data.qpos.tolist(),
+                             'obstacles':self.obstacles_enabled,'objects':self.objects.snapshot()})
+        self.snapshot_pub.publish(msg)
+
     def set_obstacles(self, request, response):
+        if not request.data and any(self.objects.active.values()):
+            response.success=False;response.message='Remove the grasp objects before removing their table'
+            return response
         if request.data == self.obstacles_enabled:
             response.success = True
             response.message = 'on' if request.data else 'off'
@@ -77,12 +120,6 @@ class Bridge(Node):
         except ValueError as exc:
             self.get_logger().warning(f'Rejected command: {exc}', throttle_duration_sec=5.0)
 
-    def reset(self, request, response):
-        self.sim.reset()
-        response.success = True
-        response.message = 'Reset; simulation clock returned to zero'
-        return response
-
     def publish_state(self):
         ns = round(self.sim.data.time * 1_000_000_000)
         clock = Clock()
@@ -122,6 +159,8 @@ def main():
                 tick += 1
                 if tick % 5 == 0:
                     node.publish_state()
+                if tick % 100 == 0:
+                    node.snapshot()
                 if viewer and tick % 16 == 0:
                     viewer.sync()
                 deadline += node.sim.model.opt.timestep
