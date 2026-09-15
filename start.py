@@ -244,6 +244,7 @@ def main():
         docker('stop',NAME);docker('rm',NAME)
     def launch(selected, device_options):
         options=['run','-d','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
+        options += ['--mount', f'type=bind,source={ROOT},target=/workspaces/OpenArm_sim']
         if selected=='cpu':options+=['-p',f'127.0.0.1:{args.port}:6080','-e','LIBGL_ALWAYS_SOFTWARE=1']
         docker(*options,IMAGE,'headless' if selected=='headless' else 'web' if selected=='cpu' else 'native')
         wait_ready(selected,args.port)

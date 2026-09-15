@@ -67,3 +67,13 @@ D435は公式マウントの寸法に基づき取り付けます。高さ740 mm�
 モデルはenactic/openarm_mujocoの固定コミットを使用。
 依存パッケージやモデルのライセンスはdocker/THIRD_PARTY.mdとvendor/LICENSEを参照。
 イメージを配布する場合はdocker save/loadを使用できます。公開レジストリへのpushは未実施です。
+
+## VS Codeでの開発
+
+Ubuntu DesktopにVS Codeをインストールし、`python3 install_shell.py` と `source ~/.bashrc` を一度実行します。以後は `oa-code` で実行中のコンテナへ接続したVS Codeが開きます。Dev Containers拡張が未導入の場合は自動インストールします。
+
+`oa-code --check` で接続の前提条件を確認できます。コンテナは先に `python3 start.py` で起動してください。古いコンテナは一度再起動すると開発用フォルダーが共有されます。
+
+VS Codeで開く `/workspaces/OpenArm_sim` は、起動したホスト側チェックアウトそのものです。ここで編集したファイルはコンテナを削除・再作成しても残ります。コンテナの `/opt/openarm` へ直接編集した内容はイメージに保存されないため、開発は共有フォルダーで行ってください。シミュレーター本体のソース変更を反映する際は `python3 start.py` で再ビルド・再起動します。
+
+統合ターミナルの既定プロファイルはOpenArm ROS 2で、ROS環境と `/opt/venv` を使用します。初回の接続時はVS Code Serverのダウンロードが発生します。Ubuntuのデスクトップ端末から実行してください。Windows側VS CodeからのRemote SSH接続はこのコマンドの対象外です。
