@@ -4,7 +4,9 @@ os.environ['MUJOCO_GL']='osmesa' if os.environ.get('LIBGL_ALWAYS_SOFTWARE','1')=
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+# Compatible with RViz defaults and BEST_EFFORT sensor readers.
+IMAGE_QOS = QoSProfile(depth=2, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)
 from sensor_msgs.msg import Image,CameraInfo
 from std_msgs.msg import String
 from std_srvs.srv import SetBool,Trigger
@@ -23,7 +25,7 @@ class Camera(Node):
         self.pub={}
         for stream in ('color','depth','aligned_depth_to_color'):
             name='image_raw' if stream=='color' or stream=='aligned_depth_to_color' else 'image_rect_raw'
-            self.pub[stream]=(self.create_publisher(Image,f'/camera/camera/{stream}/{name}',qos_profile_sensor_data),self.create_publisher(CameraInfo,f'/camera/camera/{stream}/camera_info',qos_profile_sensor_data))
+            self.pub[stream]=(self.create_publisher(Image,f'/camera/camera/{stream}/{name}',IMAGE_QOS),self.create_publisher(CameraInfo,f'/camera/camera/{stream}/camera_info',IMAGE_QOS))
         self.tf=StaticTransformBroadcaster(self);self.transforms()
         self.create_timer(1/self.cfg['fps'],self.render)
     def state(self,msg):self.latest=json.loads(msg.data)

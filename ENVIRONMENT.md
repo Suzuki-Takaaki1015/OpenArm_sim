@@ -24,7 +24,7 @@ RGB垂直FOV42度、depth58度を基準とした理想ピンホール投影で�
 | /tf_static | camera_link、camera_color_optical_frame、camera_depth_optical_frame |
 
 光学座標はx右、y下、z前。各フレームのstampは同じMuJoCo状態のシミュレーション時刻。
-画像はsensor_data QoS（BEST_EFFORT）。CameraInfoは実際の描画解像度/FOVから生成。
+画像とCameraInfoはRELIABLE / VOLATILE / KEEP_LAST(2)。RViz標準のRELIABLE受信とsensor_dataのBEST_EFFORT受信の両方に対応します。CameraInfoは実際の描画解像度/FOVから生成。
 深度は光軸方向のZ距離です。対応するCameraInfoとTFを使って3次元座標へ変換します。
 画像からの物体認識、位置推定、把持姿勢生成はメンバー側で実装してください。
 
