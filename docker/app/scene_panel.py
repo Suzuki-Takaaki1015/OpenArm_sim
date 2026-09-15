@@ -1,12 +1,12 @@
 """Desktop scene controls; runtime only, no embedded test runner."""
-import json,queue,subprocess,sys,threading,socket,math
+import os,json,queue,subprocess,sys,threading,socket,math
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 class ScenePanel:
     def __init__(self,root):
         self.root=root;self.queue=queue.Queue();self.busy=False;self.buttons=[];self.demo_proc=None;self.demo_stopping=False
-        root.title('OpenArm - シーン・カメラ');root.geometry('700x930');root.minsize(650,900)
+        root.title(f"OpenArm {os.environ.get('OPENARM_VERSION','1')}.0 - シーン・カメラ");root.geometry('700x930');root.minsize(650,900)
         style=ttk.Style();style.configure('TLabel',font=('Noto Sans CJK JP',10));style.configure('TButton',font=('Noto Sans CJK JP',10),padding=7)
         frame=ttk.Frame(root,padding=18);frame.pack(fill='both',expand=True)
         ttk.Label(frame,text='シーンとD435カメラ',font=('Noto Sans CJK JP',17,'bold')).pack(anchor='w')

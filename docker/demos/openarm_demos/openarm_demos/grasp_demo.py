@@ -1,5 +1,5 @@
 """Pick, lift, replace a 100 g box using MoveIt and physical MuJoCo contact."""
-import copy, fcntl, json, signal, sys, time
+import copy, fcntl, json, signal, sys, time, os
 from pathlib import Path
 import rclpy
 from rclpy.node import Node
@@ -167,7 +167,9 @@ class Demo(Node):
         if rise<.09:raise RuntimeError(f'Physical grasp failed: sustained lift only {rise*100:.1f} cm')
         print(f'[PASS] Physical object stayed {rise*100:.1f} cm above its starting height',flush=True)
         print('[7/8] Lower and release on table',flush=True);self.vertical(.30);self.detach();self.grip(.03)
-        print('[8/8] Retreat and return home',flush=True);self.vertical(.38);self.move_joints([0.]*7)
+        print('[8/8] Retreat and return home',flush=True);self.vertical(.38)
+        restored=PlanningScene();restored.is_diff=True;restored.robot_state.is_diff=True;restored.allowed_collision_matrix=self.saved_acm;self.apply(restored)
+        self.move_joints([0.]*7)
         self.pause(1.);final=self.position()
         # A released box may rest on a different face: check its oriented bottom.
         w,x,y,z=self.snapshot['objects']['box']['quaternion_wxyz']
@@ -182,6 +184,11 @@ class Demo(Node):
             s=PlanningScene();s.is_diff=True;s.robot_state.is_diff=True;s.allowed_collision_matrix=self.saved_acm;self.apply(s)
 
 def main():
+    if os.environ.get('OPENARM_VERSION','1')=='2':
+        from . import bimanual_demo
+        sys.argv=[sys.argv[0],'--arms','right']
+        return bimanual_demo.main()
+
     lock=open('/tmp/openarm-pick-demo.lock','w')
     try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     except BlockingIOError:print('A grasp demo is already running',file=sys.stderr);return 1

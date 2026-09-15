@@ -17,7 +17,7 @@ for attempt in {1..100}; do
   sleep 0.1
 done
 if [[ "$ready" != 1 ]]; then echo 'Xvfb startup failed' >&2; exit 1; fi
-openbox --config-file /opt/openarm/config/openbox.xml &
+openbox --config-file "$OPENARM_CONFIG/openbox.xml" &
 pids+=("$!")
 x11vnc -display :99 -localhost -rfbport 5900 -forever -shared -nopw &
 pids+=("$!")

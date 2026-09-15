@@ -10,7 +10,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
-CONFIG=Path('/opt/openarm/config')
+CONFIG=Path(os.environ.get('OPENARM_CONFIG','/opt/openarm/config/v1'))
 def load(name):return yaml.safe_load((CONFIG/name).read_text())
 def params():
     return {'robot_description':(CONFIG/'openarm.urdf').read_text(), 'robot_description_semantic':(CONFIG/'openarm.srdf').read_text(), 'robot_description_kinematics':load('kinematics.yaml'),'robot_description_planning':load('joint_limits.yaml'),'planning_pipelines':['ompl'],'default_planning_pipeline':'ompl','ompl':load('ompl.yaml'),'moveit_controller_manager':'moveit_simple_controller_manager/MoveItSimpleControllerManager','moveit_simple_controller_manager':load('moveit_controllers.yaml'),'trajectory_execution.allowed_execution_duration_scaling':2.0,'trajectory_execution.allowed_goal_duration_margin':10.0,'trajectory_execution.allowed_start_tolerance':0.05,'publish_robot_description':True,'publish_robot_description_semantic':True,'publish_planning_scene':True,'publish_geometry_updates':True,'publish_state_updates':True,'publish_transforms_updates':True,'use_sim_time':True}

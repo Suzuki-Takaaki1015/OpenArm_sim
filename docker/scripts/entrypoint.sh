@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 set -e
+export OPENARM_VERSION="${OPENARM_VERSION:-1}"
+case "$OPENARM_VERSION" in
+  1) export OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml ;;
+  2) export OPENARM_MODEL=/opt/openarm/models/v2/simulation_robot.xml ;;
+  *) echo "Unsupported OpenArm version: $OPENARM_VERSION" >&2; exit 1 ;;
+esac
+export OPENARM_CONFIG=/opt/openarm/config/v$OPENARM_VERSION
+export OPENARM_SCENE=/opt/openarm/models/v$OPENARM_VERSION/simulation_scene.xml
 source /opt/ros/jazzy/setup.bash
 if [[ -f /opt/openarm/demo_ws/install/setup.bash ]]; then source /opt/openarm/demo_ws/install/setup.bash; fi
 case "${1:-web}" in

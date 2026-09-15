@@ -15,7 +15,7 @@ import venv
 
 ROOT = Path(__file__).resolve().parent
 STATE = ROOT / '.openarm'
-IMAGE = 'openarm-sim:0.4.0'
+IMAGE = 'openarm-sim:0.5.0'
 NAME = 'openarm-auto'
 LABEL = 'org.openarm.launcher'
 
@@ -219,6 +219,7 @@ def main():
     p.add_argument('--stop',action='store_true');p.add_argument('--logs',action='store_true')
     p.add_argument('--headless', action='store_true', help='ROS and MuJoCo physics without any GUI')
     p.add_argument('--display', choices=['auto','native','browser'], default='auto', help='auto: desktop windows when available; otherwise browser')
+    p.add_argument('--robot-version',choices=['1','2'],help='OpenArm model; prompted on interactive startup')
     p.add_argument('--port',type=int,default=6080)
     args=p.parse_args()
     if not 1<=args.port<=65535: p.error('port must be 1..65535')
@@ -246,17 +247,25 @@ def main():
     endpoint=os.environ.get('DOCKER_HOST') or context['Endpoints']['docker']['Host']
     if not endpoint.startswith(('unix://','npipe://')):
         raise RuntimeError('Use a local Docker context. Remote Docker endpoints are not supported by this launcher.')
+    if args.robot_version is None:
+        if sys.stdin.isatty() and not args.check:
+            while args.robot_version not in ('1','2'):
+                args.robot_version=input('OpenArm model [1: OpenArm 1.0 / 2: OpenArm 2.0] (1): ').strip() or '1'
+        else:
+            args.robot_version='1'
+            status('CHECK','Noninteractive/check mode: OpenArm 1.0; use --robot-version 2 for 2.0')
+    status('OK',f'Robot: OpenArm {args.robot_version}.0')
     build_image(args.rebuild)
     mode, opts, reason=select_presentation(args,system,endpoint)
     status('OK',f'Display: {"none" if mode == "headless" else "browser" if mode == "cpu" else "host desktop"}; rendering: {"GPU" if mode == "gpu" else "CPU"} - {reason}')
     status('OK','Physics: MuJoCo CPU; GPU selection accelerates rendering only')
-    (STATE/'environment.json').write_text(json.dumps({'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
+    (STATE/'environment.json').write_text(json.dumps({'robot_version':args.robot_version,'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
     if args.check: return
     old=existing()
     if old:
         docker('stop',NAME);docker('rm',NAME)
     def launch(selected, device_options):
-        options=['run','-d','-e',f'LP_NUM_THREADS={min(8, os.cpu_count() or 2)}','-e','OPENARM_VIEWER_FPS=60','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
+        options=['run','-d','-e',f'OPENARM_VERSION={args.robot_version}','-e',f'LP_NUM_THREADS={min(8, os.cpu_count() or 2)}','-e','OPENARM_VIEWER_FPS=60','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
         dev = STATE / 'dev_ws'
         (dev / 'src').mkdir(parents=True, exist_ok=True)
         (dev / '.home').mkdir(exist_ok=True)
@@ -279,7 +288,7 @@ def main():
         (STATE/'gpu-startup.log').write_text(log.stdout,encoding='utf-8')
         docker('rm','-f',NAME)
         mode='cpu'; reason='Native display startup failed; see .openarm/gpu-startup.log'; launch(mode,[])
-    (STATE/'environment.json').write_text(json.dumps({'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
+    (STATE/'environment.json').write_text(json.dumps({'robot_version':args.robot_version,'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
     status('OK', 'Headless simulation ready; use oa or oa-ros' if mode=='headless' else 'Native RViz + MuJoCo windows opened' if mode!='cpu' else f'Open http://localhost:{args.port}/vnc.html?autoconnect=true&resize=scale')
     print('Stop: bash start.sh --stop\nLogs: bash start.sh --logs',flush=True)
 

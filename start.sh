@@ -6,7 +6,7 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 say() { printf '[%-5s] %s\n' "$1" "$2"; }
 fail() { say FAIL "$*" >&2; exit 1; }
 if [[ ${1:-} == --help ]]; then
-    printf 'Usage: bash start.sh [--offline | --setup-only | launcher options]\nInstalls missing Ubuntu 24.04 dependencies, then launches OpenArm.\nLauncher options: --cpu --gpu --headless --display auto|native|browser --check --rebuild --stop --logs\n'
+    printf 'Usage: bash start.sh [--offline | --setup-only | launcher options]\nInstalls missing Ubuntu 24.04 dependencies, then launches OpenArm.\nLauncher options: --cpu --gpu --headless --display auto|native|browser --check --rebuild --stop --logs --robot-version 1|2\n'
     exit 0
 fi
 [[ $(uname -s) == Linux ]] || fail 'Automatic installation supports Ubuntu 24.04 only.'

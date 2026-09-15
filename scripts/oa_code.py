@@ -44,7 +44,7 @@ def main():
     entry = run(['docker', 'exec', NAME, 'getent', 'passwd', uid]).split(':')
     user, home = entry[0], entry[5]
     env = json.loads(run(['docker', 'exec', NAME, '/opt/openarm/scripts/entrypoint.sh', 'python', '-c', 'import os,json;print(json.dumps(dict(os.environ)))']))
-    keys = ['PATH', 'PYTHONPATH', 'LD_LIBRARY_PATH', 'AMENT_PREFIX_PATH', 'CMAKE_PREFIX_PATH', 'COLCON_PREFIX_PATH', 'ROS_DISTRO', 'ROS_VERSION', 'ROS_PYTHON_VERSION', 'ROS_DOMAIN_ID', 'ROS_AUTOMATIC_DISCOVERY_RANGE']
+    keys = ['OPENARM_VERSION', 'OPENARM_MODEL', 'OPENARM_SCENE', 'OPENARM_CONFIG', 'PATH', 'PYTHONPATH', 'LD_LIBRARY_PATH', 'AMENT_PREFIX_PATH', 'CMAKE_PREFIX_PATH', 'COLCON_PREFIX_PATH', 'ROS_DISTRO', 'ROS_VERSION', 'ROS_PYTHON_VERSION', 'ROS_DOMAIN_ID', 'ROS_AUTOMATIC_DISCOVERY_RANGE']
     remote_env = {k: env[k] for k in keys if k in env}
     remote_env['HOME'] = WORKSPACE + '/.home'
     directory = Path.home() / '.config/Code/User/globalStorage/ms-vscode-remote.remote-containers/nameConfigs'

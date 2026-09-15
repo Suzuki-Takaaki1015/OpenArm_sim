@@ -16,3 +16,10 @@ Installed versions are recorded in /opt/openarm/os-packages.txt and
 
 ## Camera assets
 OpenArm official D435 bracket: CERN-OHL-S-2.0; original STEP and license in app/camera_assets. RealSense D435 mesh and nominal URDF: Apache-2.0; originals, commit and license in app/camera_assets. See app/camera_assets/SOURCES.md and CAMERA_MOUNT.md.
+
+## OpenArm 2.0
+Required robot/pedestal XML and referenced meshes from the same official repository,
+pinned at ce761e2eb1079c3e7cafe515a375930adedad190. Apache-2.0 license unchanged.
+The adapter `app/prepare_v2.py` flattens the official attachment at build time,
+adds a fixed hand control frame, and shares this project's optional RGB-D scene.
+No official motor axes, ranges, inertias or fingertip meshes are replaced.

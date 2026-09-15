@@ -132,7 +132,15 @@ class Bridge(Node):
         msg = JointState()
         msg.header.stamp = clock.clock
         msg.name = self.sim.names
-        msg.position = self.sim.data.qpos[self.sim.qadr].tolist()
+        positions = self.sim.data.qpos[self.sim.qadr].copy()
+        # MuJoCo limits are soft. Normalize only tiny solver overrun for MoveIt;
+        # raw positions remain available in /openarm/sim_state for diagnostics.
+        for i,j in enumerate(self.sim.joint_ids):
+            if self.sim.model.jnt_limited[j]:
+                lo,hi=self.sim.model.jnt_range[j]
+                if lo-1e-4 <= positions[i] <= hi+1e-4:
+                    positions[i]=min(max(positions[i],lo),hi)
+        msg.position = positions.tolist()
         msg.velocity = self.sim.data.qvel[self.sim.dadr].tolist()
         msg.effort = self.sim.data.qfrc_actuator[self.sim.dadr].tolist()
         self.states.publish(msg)

@@ -1,7 +1,7 @@
 """Official OpenArm v1.1 bracket geometry plus an explicit project installation datum.
 CAD coordinates are mm; runtime coordinates are metres. See CAMERA_MOUNT.md.
 """
-import json,math
+import json,math,os
 from pathlib import Path
 import xml.etree.ElementTree as E
 import numpy as np
@@ -40,7 +40,8 @@ def prepare_robot(path):
     for a in list(assets.findall('mesh')):
         if (a.get('name') or '').startswith('camera_mount_'):assets.remove(a)
     old=assets.find("mesh[@name='body_collision']")
-    old.set('file',str(ASSETS/'pedestal_collision.obj'));old.set('scale','1 1 1')
+    if old is not None:
+        old.set('file',str(ASSETS/'pedestal_collision.obj'));old.set('scale','1 1 1')
     vec=lambda values:' '.join(f'{float(v):.12g}' for v in values)
     def geom(name,file,pos,quat,purpose,color):
         asset='camera_mount_'+name
@@ -49,7 +50,8 @@ def prepare_robot(path):
         attrs['class']=purpose
         if purpose=='visual':attrs.update(material='metal_silver' if name=='d435' else 'matte_black',rgba=color)
         E.SubElement(body,'geom',**attrs)
-    geom('column','column_collision.obj',[0,0,0],[1,0,0,0],'collision','')
+    if os.environ.get('OPENARM_VERSION','1')=='1':
+        geom('column','column_collision.obj',[0,0,0],[1,0,0,0],'collision','')
     # Axis permutation CAD (X,Y,Z) -> base (Z,X,Y), quaternion wxyz=(.5,-.5,-.5,-.5).
     geom('bracket','chest_mount.obj',d['mount_position'],[.5,-.5,-.5,-.5],'visual','.15 .15 .17 1')
     geom('bracket_collision','chest_mount.obj',d['mount_position'],[.5,-.5,-.5,-.5],'collision','')

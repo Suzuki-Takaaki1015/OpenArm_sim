@@ -1,4 +1,4 @@
-"""Small position servo for the pinned OpenArm v1 MJCF, independent of ROS."""
+"""Position servo for the pinned OpenArm 1.0/2.0 MJCF, independent of ROS."""
 import os
 import mujoco
 import numpy as np
@@ -28,18 +28,21 @@ class Simulation:
         if (np.any(m.actuator_trntype != mujoco.mjtTrn.mjTRN_JOINT)
                 or not np.allclose(m.actuator_gear[:, 0], 1)):
             raise ValueError('Unsupported actuator transmission')
-        # SI units: arm servo Nm/rad; finger servo N/m. The simplified MJCF
-        # has slide joints, not the physical motor/linkage transmission.
+        # SI units: arms and v2 grippers Nm/rad; v1 linear grippers N/m.
+        # v1 slide joints approximate the motor/linkage transmission.
+        hinge_finger = [('finger' in n and m.jnt_type[j]==mujoco.mjtJoint.mjJNT_HINGE) for n,j in zip(self.names,self.joint_ids)]
         self.kp = np.array([1500.0 if 'finger' in n else 80.0 for n in self.names])
         self.kd = np.array([10.0 if 'finger' in n else 8.0 for n in self.names])
         self.speed = np.array([0.02 if 'finger' in n else 1.0 for n in self.names])
+        for j, hinge in enumerate(hinge_finger):
+            if hinge:self.kp[j],self.kd[j],self.speed[j]=30.,.2,.5
         self.position_act = np.ones(m.nu, dtype=bool)
         self.motor_act = np.ones(m.nu, dtype=bool)
         for a, j in enumerate(self.act_joint):
             finger = 'finger' in self.names[j]
             if finger:
                 # Conservative 15 N/jaw; not the upstream 333 N nor Nm.
-                force = 15.0
+                force = 7.0 if hinge_finger[j] else 15.0
             else:
                 # Official DM8009P / DM4340 / DM4310 peak motor limits.
                 number = int(self.names[j].rsplit('joint', 1)[1])

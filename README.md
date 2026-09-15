@@ -1,6 +1,6 @@
 # OpenArm_sim
 
-Ubuntu 24.04 / ROS 2 Jazzy / MoveIt 2 / MuJoCoによるOpenArm v1双腕の開発環境。
+Ubuntu 24.04 / ROS 2 Jazzy / MoveIt 2 / MuJoCoによるOpenArm 1.0 / 2.0双腕の開発環境。
 Ubuntu 24.04では `bash start.sh` が不足するPython・venv・Git・Docker・Composeをインストールします。
 初回はインターネット接続とsudo権限が必要です。GitがなければリポジトリのZIPをダウンロード・展開しても構いません。
 対象はamd64。Ubuntu 24.04のVMで検証し、他OS・GPU実機は未検証です。
@@ -145,3 +145,17 @@ GUIの「両腕把持デモ」、または `bash demo_grasp.sh` で左右それ�
 起動時にこのROSパッケージを開発ワークスペースで `colcon build --symlink-install --packages-select openarm_demos` します。VS Code内で変更・追加した場合も同じコマンドでビルドし、`source install/setup.bash` の後に `ros2 run openarm_demos bimanual_demo` を実行できます。GUIも実行時にこの開発用overlayを読み込みます。物理ブリッジなど `environment/docker/app/` の変更にはDockerイメージの再ビルドが必要です。
 
 モーター資料、力の換算の前提、滑りの原因と検証結果は [HARDWARE_MODEL.md](HARDWARE_MODEL.md) を参照してください。物体の置き戻し姿勢は物理接触によって変わる場合があります。
+
+## OpenArm 1.0 / 2.0 の選択
+
+`bash start.sh` をUbuntuの端末で実行すると、環境チェック後に `1` / `2` を選択できます。
+両モデルを同じイメージに含めるため、初回ビルド後は `bash start.sh --offline` でも選択できます。
+自動実行では `bash start.sh --robot-version 2` のように明示してください。
+端末入力がない場合の既定は1.0です。切り替えると現在のシミュレーションは終了し、選んだモデルで再起動します。
+
+どちらもGUIの「右手把持デモ」「両腕把持デモ」で実行できます。
+`bash demo_grasp.sh` は両腕、`bash demo_grasp.sh --arms left` は左腕のみです。
+両腕デモは各腕が別々の100g直方体を同時に持ち上げます。
+
+`oa-code` の `src/openarm_demos/openarm_demos/bimanual_demo.py` が実行されるソースです。
+1.0/2.0を同じコード内のモデル設定で切り替えます。詳細は `OPENARM_2.md` を参照してください。
