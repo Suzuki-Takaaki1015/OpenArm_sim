@@ -6,9 +6,14 @@ from tkinter import ttk
 class ScenePanel:
     def __init__(self,root):
         self.root=root;self.queue=queue.Queue();self.busy=False;self.buttons=[];self.demo_proc=None;self.demo_stopping=False
-        root.title(f"OpenArm {os.environ.get('OPENARM_VERSION','1')}.0 - シーン・カメラ");root.geometry('700x960');root.minsize(650,950)
+        root.title(f"OpenArm {os.environ.get('OPENARM_VERSION','1')}.0 - シーン・カメラ");root.geometry('740x960');root.minsize(700,650)
         style=ttk.Style();style.configure('TLabel',font=('Noto Sans CJK JP',10));style.configure('TButton',font=('Noto Sans CJK JP',10),padding=7)
-        frame=ttk.Frame(root,padding=18);frame.pack(fill='both',expand=True)
+        canvas=tk.Canvas(root,highlightthickness=0)
+        scrollbar=ttk.Scrollbar(root,orient='vertical',command=canvas.yview);scrollbar.pack(side='right',fill='y')
+        canvas.pack(side='left',fill='both',expand=True);canvas.configure(yscrollcommand=scrollbar.set)
+        frame=ttk.Frame(canvas,padding=18);window=canvas.create_window((0,0),window=frame,anchor='nw')
+        frame.bind('<Configure>',lambda event:canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.bind('<Configure>',lambda event:canvas.itemconfigure(window,width=event.width))
         header=ttk.Frame(frame);header.pack(fill='x')
         ttk.Label(header,text='シーンとD435カメラ',font=('Noto Sans CJK JP',17,'bold')).pack(side='left')
         self.doctor_busy=False;self.doctor_results=queue.Queue()
@@ -38,6 +43,26 @@ class ScenePanel:
         ttk.Label(manual,text='Xは前方、Yは左方向。高さは机上へ自動調整。衝突・机外への配置は拒否します。',wraplength=620).pack(anchor='w')
         self.group(frame,'胸部D435：RGB・深度・CameraInfo・TF',[('配信開始','camera-on'),('配信停止','camera-off')])
         ttk.Label(frame,text='カメラは初期OFF・2 fps。公式マウント／M6固定高さ740 mm（本環境の基準）。',wraplength=570).pack(anchor='w',pady=(4,8))
+        presets=ttk.LabelFrame(frame,text='名前付きシーン保存・復元',padding=8);presets.pack(fill='x',pady=(4,0))
+        self.preset_name=tk.StringVar(value='')
+        self.preset_choices=ttk.Combobox(presets,textvariable=self.preset_name,width=22,postcommand=self.refresh_presets)
+        self.preset_choices.pack(side='left',fill='x',expand=True)
+        for label,action in [('新規保存','save'),('復元','load')]:
+            b=ttk.Button(presets,text=label,command=lambda action=action:self.named_preset(action));b.pack(side='left');self.buttons.append(b)
+        self.refresh_presets()
+        from recording import Controller, previous_status
+        self.recording=Controller()
+        recording_box=ttk.LabelFrame(frame,text='rosbag2記録（明示開始のみ）',padding=8);recording_box.pack(fill='x',pady=(8,0))
+        record_row=ttk.Frame(recording_box);record_row.pack(fill='x')
+        import datetime
+        self.record_name=tk.StringVar(value=datetime.datetime.now().strftime('record_%Y%m%d_%H%M%S'))
+        ttk.Entry(record_row,textvariable=self.record_name,width=25).pack(side='left',fill='x',expand=True)
+        self.record_start=ttk.Button(record_row,text='記録開始',command=self.start_recording);self.record_start.pack(side='left')
+        self.record_stop=ttk.Button(record_row,text='記録停止・保存',command=self.stop_recording);self.record_stop.pack(side='left');self.record_stop.state(['disabled'])
+        self.record_state=tk.StringVar(value=previous_status())
+        ttk.Label(recording_box,textvariable=self.record_state,wraplength=620).pack(anchor='w')
+        ttk.Label(recording_box,text='保存先: OpenArm_dev/recordings。カメラOFFでは画像なし。指令は記録しません。',wraplength=620).pack(anchor='w')
+        root.after(100,self.poll_recording)
         recovery=ttk.LabelFrame(frame,text='復旧',padding=8);recovery.pack(fill='x',pady=(10,8))
         self.restart_button=ttk.Button(recovery,text='シミュレーションを再起動',command=self.restart)
         self.restart_button.pack(anchor='w')
@@ -54,6 +79,38 @@ class ScenePanel:
         ttk.Label(frame,text='配置・削除は腕を止めてから。配置時は机も自動で有効になります。\n物体を削除してから机を非表示にしてください。\n把持デモは初期姿勢から実行。机と直方体を準備し、他の配置物体を削除します。',wraplength=560).pack(anchor='w',pady=(12,0))
         root.protocol('WM_DELETE_WINDOW',self.close)
         root.after(100,self.poll);root.after(300,lambda:self.request('status'))
+    def start_recording(self):
+        try:
+            self.recording.start(self.record_name.get())
+            self.record_state.set('開始準備中… 状態と空き容量を確認しています')
+            self.record_start.state(['disabled']);self.record_stop.state(['!disabled'])
+        except Exception as exc:self.record_state.set(str(exc))
+
+    def stop_recording(self):
+        self.recording.stop()
+        self.record_state.set('停止・保存中…')
+        self.record_stop.state(['disabled'])
+
+    def poll_recording(self):
+        while True:
+            try:event=self.recording.events.get_nowait()
+            except queue.Empty:break
+            if event['state']=='idle':
+                self.record_start.state(['!disabled']);self.record_stop.state(['disabled'])
+            else:self.record_state.set(event['message'])
+        self.root.after(100,self.poll_recording)
+
+    def refresh_presets(self):
+        from scene_presets import Store
+        self.preset_choices['values']=Store().names()
+
+    def named_preset(self,action):
+        from scene_presets import Store
+        name=self.preset_name.get()
+        try:Store().path(name)
+        except ValueError as exc:self.state.set(str(exc));return
+        self.request('preset-'+action,[name])
+
     def doctor(self):
         if self.doctor_busy:return
         self.doctor_busy=True;self.doctor_button.state(['disabled'])
@@ -105,12 +162,16 @@ class ScenePanel:
         extra=[part for k,v in values.items() for part in ['--'+k,str(v)]]
         self.request(key+'-place',extra)
     def close(self):
+        if self.recording.active():
+            self.stop_recording();self.root.after(100,self.close);return
         self.stop_demo();self.root.destroy()
     def stop_demo(self):
         if self.demo_proc is not None and self.demo_proc.poll() is None and not self.demo_stopping:
             self.demo_stopping=True
             self.demo_proc.terminate();self.state.set("デモを停止中…")
     def restart(self):
+        if self.recording.active():
+            self.stop_recording();self.root.after(100,self.restart);return
         if self.demo_proc is not None and self.demo_proc.poll() is None:
             self.stop_demo();self.root.after(1000,self.restart);return
         # This control does not depend on ROS responding and stays available
@@ -150,7 +211,9 @@ class ScenePanel:
                             lines.append(line.strip());self.queue.put(('demo-progress',True,line.strip()))
                         code=proc.wait()
                     self.queue.put(('demo-stopped' if code==130 else action,code in (0,130),'\n'.join(lines[-3:])));return
-                r=subprocess.run([sys.executable,str(Path(__file__).with_name('scene_cli.py')),action,*(extra or [])],capture_output=True,text=True,timeout=180)
+                script='preset_cli.py' if action.startswith('preset-') else 'scene_cli.py'
+                mode=action.removeprefix('preset-') if action.startswith('preset-') else action
+                r=subprocess.run([sys.executable,str(Path(__file__).with_name(script)),mode,*(extra or [])],capture_output=True,text=True,timeout=180)
                 self.queue.put((action,r.returncode==0,(r.stdout+r.stderr).strip()))
             except Exception as exc:self.queue.put((action,False,str(exc)))
         threading.Thread(target=worker,daemon=True).start()

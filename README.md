@@ -102,6 +102,22 @@ source ~/.bashrc
 
 YCBは両モデル共通で、公式スキャン93項目・修復した近似2項目・代替形状8項目を含みます。マグカップ・平皿・ボウルも利用できます。[形状・力学上の制限](docker/YCB.md)を参照してください。
 
+### 支柱と物体の表示・同期
+
+1.0/2.0の支柱は銀色で表示します。支持部・支柱・D435を表示専用の固定リンクに分けて材質を適用しています。支持構造、衝突形状、質量・慣性、カメラ取付位置は維持しています。
+
+RVizの **Physical objects (MuJoCo)** は物理シミュレーション内の実物位置です。**MotionPlanning** の計画シーンは半透明で、追加した独自の障害物も表示します。把持時のattached collision objectはMoveItが手に固定した論理形状で、実物表示とは別です。同期ノードはattached物体を世界物体として二重追加しません。
+
+物体状態は10 Hz（シミュレーション時間）の小さい専用トピックで配信し、カメラ用sim_stateは5 Hz、画像は既定2 fpsのままです。MoveItへの更新は成功応答後に記録し、0.5秒ごとに実際の計画シーンを読み戻します。MoveIt再起動、追加・削除の取りこぼし、古い位置から最新状態へ回復します。起動が遅れたRVizも最新の実物表示を受け取れます。実時間の遅延はシミュレーション速度と描画負荷に依存します。
+
+更新頻度の確認（**起動中コンテナ内のターミナル**）：
+
+```bash
+ros2 topic hz /openarm/object_state
+```
+
+再現可能な隔離回帰手順は [描画・同期の検証](tests/RENDER_SYNC.md) を参照してください。
+
 ### RVizで腕を動かす
 
 1. ツールバーで **Interact** を選びます。
@@ -266,6 +282,80 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
+### 自作パッケージをひな形から始める
+
+`oa-code`で接続した**コンテナ内ターミナル**で実行します。シミュレーションを起動しておいてください。生成先は永続workspaceの`src/my_openarm_reader`です。同名のファイル・フォルダー・リンクが存在すれば停止し、利用者のコードを上書きしません。
+
+```bash
+python /opt/openarm/scripts/create_ros_package.py my_openarm_reader
+```
+
+```bash
+cd /workspaces/OpenArm_dev && colcon build --symlink-install --packages-select my_openarm_reader
+```
+
+```bash
+source /workspaces/OpenArm_dev/install/setup.bash && ros2 run my_openarm_reader read_example
+```
+
+実行は読み取り1回で終了し、同じコマンドを繰り返せます。`src/my_openarm_reader/my_openarm_reader/read_example.py`を編集してください。生成されたREADMEにも実行手順を保存します。
+
+- `use_sim_time`は既定true。`/mujoco/joint_states`（`sensor_msgs/msg/JointState`）は配列番号でなく関節名で参照します。
+- `MODEL`はコンテナの`$OPENARM_CONFIG/openarm.urdf`からモデルの関節型・単位・上下限・mimicを取得します。1.0の指は直動m、2.0の指は回転radでfinger_joint2はmimicです。`FINGERS`には受信した実測位置が出ます。
+- `/openarm/scene/status`（`std_srvs/srv/Trigger`）は読み取り専用で、JSON応答を`SCENE`として出力します。探索・応答・JointState・時計受信を合計5秒の実時間で制限し、失敗時は終了コード1になります。シミュレーション時計が止まっても待ち続けません。
+- これは自作ノードの教材です。環境の健康判定はホストの`oa-doctor`を使います。追加のpip/apt導入は不要です。
+
+待ち時間を変更する場合も**コンテナ内ターミナル**で実行します。
+
+```bash
+source /workspaces/OpenArm_dev/install/setup.bash && ros2 run my_openarm_reader read_example --ros-args -p timeout_sec:=10.0
+```
+
+旧イメージに生成スクリプトがない場合は、環境本体のイメージ再ビルドが必要です。自作パッケージを公開する前にpackage.xmlとsetup.pyの作者・メール・ライセンスを変更してください。
+
+<a id="development-checks"></a>
+### 変更後の開発チェック
+
+**UbuntuホストのOpenArm_simリポジトリ直下**で実行します（Python 3.10以上）。既定はネット・Docker・ROS不要の軽量チェックです。
+
+```bash
+python3 -B scripts/check_dev.py
+```
+
+Python構文、両モデルのXML/メッシュ参照、サンプルの設定・実行入口、既存のホスト回帰試験を確認します。環境をインストール・ビルド・停止したり、腕や配置を動かしたりしません。実行中環境の健康診断は `oa-doctor` を使います。
+
+生成済み設定・D435描画・物理回帰は、ローカル検証イメージを明示指定して別途実行します。ネットワークなしの一時コンテナを使い、通常環境とユーザーworkspaceを保全します。[検証の前提・イメージ作成・独立した実行コマンド・失敗時の対処](tests/VALIDATION.md)を参照してください。
+
+```bash
+python3 -B scripts/check_dev.py isolated --help
+```
+
+終了コードは成功0、失敗/前提不足/時間切れ1、引数誤り2、中断130です。成功は選択範囲だけを意味し、未検証項目も表示します。全機能の最終統合検証は別途必要です。
+
+### Dockerの反復ビルド
+
+**UbuntuホストのOpenArm_simリポジトリ直下**で、通常環境と別タグの検証イメージを作成します。実行中コンテナは置き換えません。
+
+```bash
+docker build --progress=plain -t openarm-sim:dev-check docker
+```
+
+apt依存、Python仮想環境とrequirements.txt、デモoverlay、モデル資産、app/scriptsと両モデルの設定生成の順に処理します。同じDockerキャッシュが残っていれば、app変更ではapt/pip取得とデモビルドを再実行しません。requirements.txt変更ではpip以降、aptのインストール命令変更では該当層以降を再実行します。依存バージョンの更新を自動で検出する仕組みではありません。
+
+```bash
+python3 -B scripts/check_dev.py isolated --image openarm-sim:dev-check --suite physics
+```
+
+初回相当の依存インストールを確認するときだけ、キャッシュを無効にします。ダウンロード時間とディスク容量が必要です。
+
+```bash
+docker build --no-cache --progress=plain -t openarm-sim:dev-clean docker
+```
+
+`--no-cache`はビルド層を再実行しますが、保存済みベースイメージは利用できます。完全に空のDocker環境からの取得試験とは異なります。ベースイメージとaptリポジトリは従来どおり可変なので、別日時のビルドの全バイト一致は保証しません。取得したOS/Pythonパッケージ一覧はイメージ内の`/opt/openarm/os-packages.txt`と`python-packages.txt`に保存します。
+
+ネット不通時や`bash start.sh --offline`では、従来どおり既存の通常イメージを使用し、取得・ビルドを行いません。ローカルソースの変更は焼き込まれず、必要なイメージやホスト依存がなければ停止します。上記の検証タグを作るだけでは通常環境へ反映されません。反映は[イメージの再ビルド](#rebuild)で行います。
+
 ### 保存場所と再ビルドの違い
 
 開発ワークスペースは、ホストの`<checkout>/.openarm/dev_ws`に保存されます。`src`・`build`・`install`・`log`はコンテナ再作成後も残ります。**`.openarm`を削除すると開発データも消えます。** `/opt/openarm`の直接編集や共有フォルダー外のデータは永続化されません。
@@ -276,6 +366,8 @@ source install/setup.bash
 ## 把持デモを実行する
 
 両モデルで、GUIの **「右手把持デモ」** または **「両腕把持デモ」** を利用できます。停止は **「デモ停止」** です。
+
+1.0の `bimanual_demo`（`--arms left/right` の単腕指定を含む）は、配置後に机端より手前の衝突検査付き経由点へ退避してから初期姿勢へ戻ります。指が机端へ接触する近接した帰還経路を避けます。
 
 **両腕を初期姿勢に戻してから開始してください。** デモは作業台と対象の直方体を配置し、ほかの把持物体を削除します。実行中はRVizや別コードから腕・物体を操作しないでください。中断・失敗後はGUIでシミュレーションを再起動してから再実行します。
 
@@ -534,8 +626,8 @@ flowchart LR
   Physics -->|/mujoco/joint_states| Control
   Control -->|/joint_states| TF[robot_state_publisher]
   Control -->|/joint_states| MoveIt
-  Physics -->|/openarm/sim_state| Scene[openarm_object_scene_sync]
-  Scene -->|/planning_scene| MoveIt
+  Physics -->|/openarm/object_state| Scene[openarm_object_scene_sync]
+  Scene -->|/apply_planning_scene| MoveIt
   Physics -->|/openarm/sim_state| Camera[openarm_d435_sim]
   Camera -->|画像 / 深度 / CameraInfo| Perception[自分の認識ノード]
 ```
@@ -553,7 +645,7 @@ flowchart LR
 | `/left_gripper_controller`、`/right_gripper_controller` | 指の位置軌道追従 | FollowJointTrajectory |
 | `/robot_state_publisher` | URDFと関節状態からTFを生成 | `/tf`、`/tf_static` |
 | `/move_group` | IK、衝突判定、経路計画、計画シーン管理、軌道実行 | `simulation.launch.py`、生成MoveIt設定 |
-| `/openarm_object_scene_sync` | MuJoCo内の把持物体をMoveIt衝突物体へ同期 | `object_scene_sync.py` |
+| `/openarm_object_scene_sync` | 机・物体・家具をMoveItへ同期し、RVizへ実物位置を表示 | `object_scene_sync.py` |
 | `/openarm_d435_sim` | RGB・深度画像、CameraInfo、カメラ固定TF | `camera_node.py`、`camera_config.json` |
 | `/rviz` | 表示とMoveItの操作画面 | `docker/app/openarm.rviz` |
 
@@ -586,13 +678,15 @@ ros2 topic info /joint_states -v
 | `/mujoco/joint_states` | `sensor_msgs/msg/JointState` | 内部：MuJoCo→ros2_controlのフィードバック |
 | `/mujoco/joint_commands` | `sensor_msgs/msg/JointState` | 内部：ros2_control→MuJoCoの位置指令。稼働中controllerと競合するため通常は直接publishしない |
 | `/clock` | `rosgraph_msgs/msg/Clock` | 読む：シミュレーション時刻 |
+| `/openarm/object_state` | `std_msgs/msg/String` | 読む：机と物体の実物状態。10 Hz設計値、カメラ用状態とは別配信 |
+| `/openarm/physical_objects` | `visualization_msgs/msg/MarkerArray` | 読む：実物位置のRViz表示。完全な最新状態をTransient Localで保持 |
 | `/openarm/sim_state` | `std_msgs/msg/String` | 読む：時刻、MuJoCo qpos、机と各物体の状態をJSONで配信 |
 | `/tf`、`/tf_static` | `tf2_msgs/msg/TFMessage` | 読む：動く座標変換／固定座標変換 |
 | `/robot_description`、`/robot_description_semantic` | `std_msgs/msg/String` | 読む：URDF／SRDF。遅れて購読する場合のDurabilityも確認 |
 | `/<controller>/controller_state` | `control_msgs/msg/JointTrajectoryControllerState` | 読む：軌道参照値・実測値・誤差。controllerは左右arm/gripperのいずれか |
 | `/<controller>/joint_trajectory` | `trajectory_msgs/msg/JointTrajectory` | 書く：軌道Topic入力。結果やキャンセルを追跡する初心者向けコードではActionを推奨 |
 | `/<controller>/speed_scaling_input` | `control_msgs/msg/SpeedScalingFactor` | 制御ライブラリの速度スケーリング入力。存在だけで本環境の速度調整が有効とは限らない |
-| `/planning_scene` | `moveit_msgs/msg/PlanningScene` | 書く：MoveIt計画シーンの差分入力。物体同期ノードも使用 |
+| `/planning_scene` | `moveit_msgs/msg/PlanningScene` | 書く：MoveIt計画シーンの差分入力。物体同期ノードは応答確認付きの `/apply_planning_scene` を使用 |
 | `/monitored_planning_scene` | `moveit_msgs/msg/PlanningScene` | 読む：MoveItが管理しているシーン。物理世界そのものではない |
 | `/planning_scene_world` | `moveit_msgs/msg/PlanningSceneWorld` | 書く：MoveItの環境形状入力 |
 | `/collision_object` | `moveit_msgs/msg/CollisionObject` | 書く：MoveIt衝突物体の追加・移動・削除 |
@@ -611,7 +705,7 @@ ros2 topic info /joint_states -v
 
 `JointState.name` と `position` は同じインデックスで対応します。左右や指が並ぶ順序を固定で仮定せず、`dict(zip(msg.name, msg.position))` のように名前で取得します。回転関節のpositionはrad、速度はrad/s、直動関節はm、m/sです。effortの有無・単位は供給元と関節種類に依存し、実測モータートルクと同一とは限りません。
 
-本環境の物理刻みは0.002秒（500 Hz）、MuJoCo関節状態とclockは100 Hz、sim_stateは5 Hz（いずれもシミュレーション時間に対する設計値）。トピックの配信頻度を実時間で測った値は負荷と購読QoSの影響を受けます。
+本環境の物理刻みは0.002秒（500 Hz）、MuJoCo関節状態とclockは100 Hz、object_stateは10 Hz、sim_stateは5 Hz（いずれもシミュレーション時間に対する設計値）。トピックの配信頻度を実時間で測った値は負荷と購読QoSの影響を受けます。
 
 ```bash
 ros2 topic echo /joint_states --once
@@ -665,7 +759,7 @@ ros2 interface show sensor_msgs/msg/JointState
 | `/openarm/objects/<key>/set_enabled` | `std_srvs/srv/SetBool` | trueで配置、falseで削除。既にONの物体はtrueだけでは再配置しない |
 | `/openarm/objects/<key>/reposition` | `std_srvs/srv/Trigger` | `{}` → ランダム再配置。未表示なら新規配置 |
 | `/openarm/objects/<key>/place` | `rcl_interfaces/srv/SetParametersAtomically` | DOUBLEのx,y,yawをちょうど3つ指定。応答は `result.successful` と `result.reason` |
-| `/openarm/objects/pause_sync` | `std_srvs/srv/SetBool` | MuJoCo→MoveIt物体同期を一時停止／再開。物理計算や腕は停止しない。通常は把持デモが管理 |
+| `/openarm/objects/pause_sync` | `std_srvs/srv/SetBool` | 計画同期だけ一時停止／再開。停止応答は送信中の更新完了を待つ。実物Marker・物理・腕は停止しない。把持デモはattachment切替後に再開 |
 | `/openarm/camera/set_enabled` | `std_srvs/srv/SetBool` | D435画像生成のON/OFF。初期OFF |
 | `/openarm/camera/status` | `std_srvs/srv/Trigger` | JSONでenabled、error、mount_calibratedを返す |
 | `/get_planning_scene` | `moveit_msgs/srv/GetPlanningScene` | componentsで指定した計画シーン要素を取得 |
@@ -685,7 +779,7 @@ ros2 interface show sensor_msgs/msg/JointState
 
 `<key>` は `box`、`box_left`、`bottle`、またはYCBキー（例 `ycb_025_mug`、`ycb_029_plate`）。カタログのハイフンはアンダースコアになります。全103項目のkeyと由来は `docker/vendor/ycb/catalog.json` にあります。
 
-**GUIまたはoa-sceneが基本の入口です。** これらは机をMuJoCoとMoveItの両方へ反映します。`/openarm/set_obstacles` を直接呼ぶだけではMuJoCo側のみ変わり、MoveItの作業台は追加されません。把持物体は同期ノードが追従しますが、机は `scene_cli.apply()` または `/apply_planning_scene` による更新が別途必要です。
+**GUIまたはoa-sceneが基本の入口です。** 机も物体・家具と同じく同期ノードが追従します。`/openarm/set_obstacles` を直接呼んだ場合もMoveItへ反映します。GUI/CLIの応答確認付き反映も引き続き利用できます。
 
 **ホスト端末から（GUIと同じ操作経路）**
 
@@ -985,7 +1079,7 @@ URDF/SRDF/controllers.yaml等はイメージ内の `$OPENARM_CONFIG` に生成�
 | カメラTopicはあるが画像が来ない | カメラON、camera/status.error、購読QoSを確認。初回レンダラー準備には時間がかかる |
 | 深度から求めた距離が1000倍 | 16UC1のmmをmへ変換したか確認。0は無効 |
 | 物体位置がカメラの右下方向にずれる | optical frameをworld座標として扱っていないか、画像と深度の解像度・時刻が対応しているか確認 |
-| MoveIt上だけ物体がある／ない | MuJoCoとPlanningSceneは別管理。物体同期と机のapply処理を確認 |
+| MoveIt上だけ物体がある／ない | MuJoCoとPlanningSceneは別管理。object_stateと同期停止状態を確認。MoveIt復帰後は読戻しで机・物体を再照合 |
 | 指が動かない／反対に動く | OPENARM_VERSION、controllerのjoints、1.0のmと2.0のrad、左右の符号を確認 |
 | Actionが拒否／到達しない | エラーコード、初期姿勢、関節リスト、衝突、controller_stateの誤差を調べる |
 | 初期姿勢へ戻らない | 開いた指の胸部接触などを確認。GUI再起動で全体を初期化。途中姿勢からデモを重ねて実行しない |
@@ -1020,3 +1114,81 @@ ros2 interface show moveit_msgs/srv/GetMotionPlan
 D435は公式マウント形状に基づきますが、取付高さ740 mmは本環境で定めた基準で、公式指定の絶対位置ではありません。実機との一致には取付・校正が必要です。
 
 ロボットモデルはenactic/openarm_mujocoの固定コミットを使用しています。イメージの配布方法と利用条件は、上記の関連資料を確認してください。
+
+
+### 名前付きシーンの保存・復元
+
+シーンGUIの「名前付きシーン保存・復元」で名前を入力し「新規保存」を押します。
+同じ名前は上書きしません。別名で保存してください。保存済みの名前を選び「復元」を押すと、
+作業台、builtin/YCB、OPL家具・物体、衣類12インスタンスの有効状態、world位置・向き、支持面の関連を復元します。
+腕を停止してから操作してください。軌道実行中、コントローラ状態が不明な場合は保存・復元を拒否します。
+小さい画面では右のスクロールバーで下の操作へ移動できます。
+
+保存先はコンテナ内 `/workspaces/OpenArm_dev/scene_presets/`、ホスト側はcheckoutの
+`.openarm/dev_ws/scene_presets/` です。コンテナを作り直しても同じ開発workspaceを接続すれば残ります。
+名前は1〜64文字の文字・数字・空白・アンダースコア・ハイフンです。
+
+以下は **oa-codeのコンテナ内ターミナル** でも個別に実行できます。
+
+```bash
+python /opt/openarm/app/preset_cli.py save 作業シーン1
+```
+
+```bash
+python /opt/openarm/app/preset_cli.py load 作業シーン1
+```
+
+JSONの共通スキーマは `openarm.scene` version 1。モデル番号も保存し、1.0と2.0を跨ぐ復元は
+現在のロボット形状との適合を保証できないため明示的に拒否します。カタログ、許可キー、型、有限値、
+位置範囲、正規化Quaternion、支持面を全体検証し、現在の腕姿勢を含む物理モデルのコピーで
+衝突検査した後、一括適用します。途中の適用失敗は変更前へ復旧します。
+既存の物理状態→MoveIt/RViz同期が復元配置も反映します。復元成功は物理側の適用完了を示し、
+MoveItの応答停止中は同期が回復を待ちます。必要に応じて環境診断で確認してください。
+
+これは配置プリセットです。ロボット関節、物体速度、時刻、カメラ設定、MoveItのattachmentは復元しません。
+把持物体を置き、attachmentを解除してから使ってください。支持面の関連は落下後も元の関連を保持します。
+作業台は既存の固定位置・向きを記録します。JSONで変更した固定机姿勢は拒否し、机移動機能は追加しません。
+OPL衣類は従来どおり個別の剛体近似です。試験方法は [プリセット検証](tests/PRESETS.md) を参照してください。
+
+
+## GUIから状態・RGBD・TFを記録する
+
+シーンGUIの「rosbag2記録」で新しい名前を入力し、**記録開始**を押します。
+自動開始・自動再開はありません。「記録停止・保存」でrosbag2の終了を待ち、保存完了表示を確認します。
+GUIを閉じる場合やGUIからシミュレーションを再起動する場合も、先に記録を停止・保存します。
+記録開始時にカメラOFFならその旨を表示し、勝手にONにしません。RGBDが必要なら先に「配信開始」を押してください。
+開始時のカメラ状態を表示します。記録中に配信を停止すると、その期間の画像は記録されません。
+
+保存先はコンテナの `/workspaces/OpenArm_dev/recordings/<名前>/`、通常環境のホストでは
+checkout内の `.openarm/dev_ws/recordings/<名前>/` です。ユーザーのsrcとは別に永続化します。
+名前は1～64文字の文字・数字・空白・アンダースコア・ハイフン。同名データは上書きしません。
+同じworkspaceでの二重記録は拒否します。開始時1 GiB、記録中512 MiBの空き容量を下回ると開始拒否／保護停止します。
+これは余裕領域であり、他プロセスの急な大量書込や装置故障まで保証するものではありません。
+
+`bag/` は標準rosbag2 MCAP、`openarm.json` はモデル番号・開始/終了時刻・開始時のシーン/カメラ状態・
+停止理由・設定ファイルのSHA-256、`config/` は生成済み設定・モデルXML等のコピー、`recorder.log` は記録ログです。
+メッシュ等の全資産を複製した再実行用環境ではありません。元のモデル・イメージも保管してください。
+`/clock`、`/joint_states`、`/mujoco/joint_states`、`/openarm/sim_state`、`/openarm/object_state`、
+`/tf`、`/tf_static`、RGB・深度・RGB位置合わせ深度のImage/CameraInfoだけを記録します。
+bagの受信時刻もシミュレーション時刻で、メタデータのUTC実時刻とは別です。
+時計が後戻り、または5秒間届かなくなった場合は保護停止します。
+
+実行場所: **コンテナ内ターミナル**。保存内容を確認（`記録名`をGUIで入力した名前に置換）:
+
+```bash
+ros2 bag info '/workspaces/OpenArm_dev/recordings/記録名/bag'
+```
+
+実行場所: **コンテナ内ターミナル**。再生は稼働中シミュレーションと違うROSドメインを使います。
+以下の既定手順は観測トピックだけを明示し、制御指令を流しません。ドメイン84で実機や制御ノードを起動しないでください。
+可視化するRViz等も同じ84で別途起動します。稼働中ドメイン42への再生や `--all` 相当の運用はしないでください。
+
+```bash
+ROS_DOMAIN_ID=84 ros2 bag play '/workspaces/OpenArm_dev/recordings/記録名/bag' --topics /clock /joint_states /mujoco/joint_states /openarm/sim_state /openarm/object_state /tf /tf_static /camera/camera/color/image_raw /camera/camera/color/camera_info /camera/camera/depth/image_rect_raw /camera/camera/depth/camera_info /camera/camera/aligned_depth_to_color/image_raw /camera/camera/aligned_depth_to_color/camera_info
+```
+
+コンテナやPCの強制終了では正常保存できないことがあります。次回GUIは未完了の記録を表示し、
+自動再開・削除・上書き・PID指定による他プロセス停止を行いません。`openarm.json`と`recorder.log`を確認し、
+元データをコピーしてから復旧を検討してください。別GUIで進行中の記録も「未完了または別画面で記録中」と表示します。
+記録監視プロセスが終了するとrosbag2へSIGINTを送り、保存を試みます。正常保存前はロックを保持します。
+監視プロセスの強制終了時はbagが保存できてもメタデータは未完了のままです。通常のGUI終了では所有パイプの閉鎖を検知して保存します。

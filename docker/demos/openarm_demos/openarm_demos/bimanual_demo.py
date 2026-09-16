@@ -91,11 +91,11 @@ class BimanualDemo(Demo):
                     if values:setattr(p,field,[values[i] for i in indices])
             paths[(side,'arm')]=path
         self.execute_together(paths)
-    def vertical_both(self,z):
+    def vertical_both(self,z,x=None):
         paths={}
         for side in self.sides:
             q=GetCartesianPath.Request();q.header.frame_id='world';q.start_state.is_diff=True;q.group_name=side+'_arm';q.link_name=f'openarm_{side}_hand';q.max_step=.003;q.revolute_jump_threshold=.3;q.avoid_collisions=True;q.max_velocity_scaling_factor=.2;q.max_acceleration_scaling_factor=.2;q.cartesian_speed_limited_link=q.link_name;q.max_cartesian_speed=.04
-            p=Pose();p.position.x=X;p.position.y=SIDES[side]['hand_y'];p.position.z=z;p.orientation.x=math.sqrt(.5) if V2 else 1.;p.orientation.y=(math.sqrt(.5) if side=='right' else -math.sqrt(.5)) if V2 else 0.;p.orientation.w=0.;q.waypoints=[p]
+            p=Pose();p.position.x=X if x is None else x;p.position.y=SIDES[side]['hand_y'];p.position.z=z;p.orientation.x=math.sqrt(.5) if V2 else 1.;p.orientation.y=(math.sqrt(.5) if side=='right' else -math.sqrt(.5)) if V2 else 0.;p.orientation.w=0.;q.waypoints=[p]
             out=self.call(GetCartesianPath,'/compute_cartesian_path',q)
             if out.error_code.val!=1 or out.fraction<.999:raise RuntimeError(f'{side}: incomplete Cartesian path {out.fraction:.1%}')
             paths[(side,'arm')]=out.solution.joint_trajectory
@@ -145,6 +145,7 @@ class BimanualDemo(Demo):
         for a in self.attachments:
             if a.object.id in names:s.world.collision_objects.append(CollisionObject(id=a.object.id,operation=CollisionObject.REMOVE))
         if s.world.collision_objects:self.apply(s)
+        self.pause_sync(False)
     def detach(self):
         if not self.attachments:return
         s=PlanningScene();s.is_diff=True;s.robot_state.is_diff=True
@@ -191,6 +192,11 @@ class BimanualDemo(Demo):
         # Fold empty fingers after leaving the box. Open v2 fingers can touch
         # the chest while the arm follows an otherwise valid return path.
         self.grip_both(0.)
+        if not V2:
+            # v1's physical convex fingertip can catch the table's front edge
+            # on a near-grazing joint-space shortcut. First retract above the
+            # table to a collision-checked waypoint behind its x=.25 edge.
+            self.vertical_both(PRE_Z,x=.18)
         self.move_both(home=True);self.pause(1.)
         for side in self.sides:
             obj=self.object_state(side);w,x,y,z=obj['quaternion_wxyz'];extent=abs(2*(x*z-w*y))*.025+abs(2*(y*z+w*x))*.02+abs(1-2*(x*x+y*y))*.04

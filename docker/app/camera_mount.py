@@ -51,14 +51,32 @@ def exposed_v2_pedestal(source, destination):
     for a,b,c in faces:
         root=find(a);parents[find(b)]=root;parents[find(c)]=root
     labels=np.array([find(i) for i in faces[:,0]])
-    shells=[]
+    shells=[];columns=[]
     for label in np.unique(labels):
         points=triangles['vertices'][labels==label].reshape(-1,3)
         low,high=points.min(0),points.max(0)
         if np.allclose(low,[-84.7501,-80,613],atol=.02) and np.allclose(high,[65.2499,80,773],atol=.02):
             shells.append(label)
+        if np.allclose(low,[-30,-30,8],atol=.02) and np.allclose(high,[30,30,758],atol=.02):
+            columns.append(label)
     if len(shells)!=1:raise ValueError('Pinned v2 chest shell cannot be identified safely')
-    kept=triangles[labels!=shells[0]]
+    if len(columns)!=1:raise ValueError('Pinned v2 column cannot be identified safely')
+    def with_normals(selected):
+        # Pinned v2 STL stores zero normals; OGRE renders it black whereas
+        # MuJoCo regenerates normals. Preserve every vertex and face winding.
+        selected=selected.copy()
+        vertices=selected['vertices'].astype(float)
+        normals=np.cross(vertices[:,1]-vertices[:,0],vertices[:,2]-vertices[:,0])
+        lengths=np.linalg.norm(normals,axis=1)
+        selected['normal']=normals/np.where(lengths>0,lengths,1)[:,None]
+        return selected
+    column=with_normals(triangles[labels==columns[0]])
+    column_path=Path(destination).with_name('camera_exposed_column.stl')
+    column_path.write_bytes(raw[:80]+len(column).to_bytes(4,'little')+column.tobytes())
+    reference=triangles[labels!=shells[0]]
+    Path(destination).with_name('camera_exposed_support_reference.stl').write_bytes(
+        raw[:80]+len(reference).to_bytes(4,'little')+reference.tobytes())
+    kept=with_normals(triangles[(labels!=shells[0]) & (labels!=columns[0])])
     Path(destination).write_bytes(raw[:80]+len(kept).to_bytes(4,'little')+kept.tobytes())
 
 def prepare_robot(path):
@@ -78,10 +96,19 @@ def prepare_robot(path):
         output=Path(path).with_name('camera_exposed_pedestal.stl')
         exposed_v2_pedestal(source,output)
         visual.set('file',str(output))
+        # Split only the existing visual triangles; retain collision and inertia.
+        E.SubElement(assets,'mesh',name='camera_mount_column_visual',
+                     file=str(output.with_name('camera_exposed_column.stl')),scale='0.001 0.001 0.001')
+        E.SubElement(body,'geom',name='camera_mount_column_visual',mesh='camera_mount_column_visual',
+                     type='mesh',**{'class':'visual','material':'metal_silver','rgba':'.796 .796 .796 1'})
         collision=assets.find("mesh[@name='body_link0_symp']")
         if collision is None:raise ValueError('Expected pinned v2 pedestal collision')
         collision.set('file',str(ASSETS/'pedestal_collision.obj'))
         collision.set('scale','1 1 1')
+    else:
+        for g in body.findall('geom'):
+            if g.get('mesh')=='body_link0_3.obj' and g.get('class')=='visual':
+                g.set('material','metal_silver')
     old=assets.find("mesh[@name='body_collision']")
     if old is not None:
         old.set('file',str(ASSETS/'pedestal_collision.obj'));old.set('scale','1 1 1')
@@ -104,4 +131,19 @@ def prepare_robot(path):
     geom('d435','d435.obj',d['front_center'],q,'visual','.65 .65 .68 1')
     # Solid conservative housing for contacts and MoveIt, located entirely behind the front face.
     geom('d435_collision','d435_collision.obj',d['front_center'],q,'collision','')
+    if os.environ.get('OPENARM_VERSION','1')=='2':
+        # MuJoCo auto inertia depends on each mesh's convex hull. Splitting the
+        # visual must not change the original combined support's mass/inertia.
+        reference=E.fromstring(E.tostring(root))
+        rb=reference.find("worldbody/body[@name='openarm_body_link0']")
+        for item in list(rb):
+            if item.tag=='inertial' or item.get('name')=='camera_mount_column_visual':rb.remove(item)
+        reference.find("asset/mesh[@name='body_link0']").set('file',
+            str(Path(path).with_name('camera_exposed_support_reference.stl')))
+        original=mujoco.MjModel.from_xml_string(E.tostring(reference,encoding='unicode'))
+        bid=mujoco.mj_name2id(original,mujoco.mjtObj.mjOBJ_BODY,'openarm_body_link0')
+        for item in list(body.findall('inertial')):body.remove(item)
+        E.SubElement(body,'inertial',mass=vec([original.body_mass[bid]]),
+            pos=vec(original.body_ipos[bid]),quat=vec(original.body_iquat[bid]),
+            diaginertia=vec(original.body_inertia[bid]))
     tree.write(path,encoding='unicode')

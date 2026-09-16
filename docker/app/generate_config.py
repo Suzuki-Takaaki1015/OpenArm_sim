@@ -19,7 +19,6 @@ robot = E.Element('robot', name='openarm')
 E.SubElement(robot, 'link', name='world')
 semantic = E.Element('robot', name='openarm')
 meshes = {e.get('name'): e for e in x.findall('asset/mesh')}
-materials = {e.get('name'): e for e in x.findall('asset/material')}
 joint_limits = {}
 
 def vec(v): return ' '.join(f'{n:.12g}' for n in v)
@@ -67,18 +66,37 @@ def body(b,parent):
     E.SubElement(joint,'parent',link=parent);E.SubElement(joint,'child',link=name)
     origin(joint,m.body_pos[bid],m.body_quat[bid])
     E.SubElement(semantic,'disable_collisions',link1=parent,link2=name,reason='Adjacent')
-    for geom in b.findall('geom'):
+    for offset, geom in enumerate(b.findall('geom')):
+        gid=int(m.body_geomadr[bid])+offset
         if geom.get('type')!='mesh': raise ValueError('Unexpected geometry')
         purpose='collision' if geom.get('class') in ('collision','fingertip','pedestal_collision') else 'visual'
-        item=E.SubElement(link,purpose)
+        visual_link=link
+        if purpose=='visual' and name=='openarm_body_link0':
+            # MoveIt's RViz renderer uses one link material for compound visuals.
+            # Give the pedestal, column and D435 their own visual-only fixed links.
+            # All collision geometry stays on the original physical link.
+            visual_name=f'{name}_display_{gid}'
+            visual_link=E.SubElement(robot,'link',name=visual_name)
+            fixed=E.SubElement(robot,'joint',name=visual_name+'_fixed',type='fixed')
+            E.SubElement(fixed,'parent',link=name)
+            E.SubElement(fixed,'child',link=visual_name)
+            origin(fixed,[0,0,0],[1,0,0,0])
+        item=E.SubElement(visual_link,purpose)
         origin(item,floats(geom.get('pos','0 0 0')),floats(geom.get('quat','1 0 0 0')))
         mesh=meshes[geom.get('mesh')]
         geometry=E.SubElement(item,'geometry')
-        E.SubElement(geometry,'mesh',filename='file://'+str(SRC.parent/x.find('compiler').get('meshdir','meshes')/mesh.get('file')),scale=mesh.get('scale','1 1 1'))
+        mesh_path=SRC.parent/x.find('compiler').get('meshdir','meshes')/mesh.get('file')
+        E.SubElement(geometry,'mesh',filename='file://'+str(mesh_path),scale=mesh.get('scale','1 1 1'))
         if purpose=='visual':
-            material=E.SubElement(item,'material',name=geom.get('material','default'))
-            rgba=materials.get(geom.get('material'))
-            E.SubElement(material,'color',rgba=rgba.get('rgba','0.6 0.6 0.6 1') if rgba is not None else '0.6 0.6 0.6 1')
+            # MuJoCo resolves defaults and per-geom colour before rendering.
+            # Non-default geom RGBA overrides material RGBA. Unique URDF names
+            # prevent one visual's override from recolouring unrelated links.
+            rgba=m.geom_rgba[gid]
+            mid=int(m.geom_matid[gid])
+            if mid>=0 and np.array_equal(rgba,np.array([.5,.5,.5,1.],dtype=rgba.dtype)):
+                rgba=m.mat_rgba[mid]
+            material=E.SubElement(item,'material',name=f'visual_color_{gid}')
+            E.SubElement(material,'color',rgba=vec(rgba))
     for child in b.findall('body'):body(child,name)
 
 for b in x.findall('worldbody/body'):body(b,'world')

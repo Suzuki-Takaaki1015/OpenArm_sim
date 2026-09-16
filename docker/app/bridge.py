@@ -24,8 +24,13 @@ class Bridge(Node):
         self.sim = Simulation()
         self.objects = DynamicObjects(self.sim)
         self.obstacles_enabled = False
+        from preset_runtime import Presets
+        self.presets = Presets(self)
+        self.create_service(Trigger, '/openarm/scene/capture', self.capture_scene)
+        self.create_service(SetParametersAtomically, '/openarm/scene/restore', self.restore_scene)
         self.performance = {"real_time_factor": 0.0}
-        self.snapshot_pub = self.create_publisher(String, "/openarm/sim_state", 2)
+        self.snapshot_pub = self.create_publisher(String, "/openarm/sim_state", 1)
+        self.object_pub = self.create_publisher(String, "/openarm/object_state", 1)
         self.create_service(Trigger, "/openarm/scene/status", self.scene_status)
         for key in ITEMS:
             self.create_service(SetParametersAtomically, f"/openarm/objects/{key}/place", lambda req,res,key=key: self.place_object(key,req,res))
@@ -37,6 +42,26 @@ class Bridge(Node):
         self.create_subscription(JointState, '/mujoco/joint_commands', self.command, 1)
         # Restart the stack to reset time; controller trajectories must reset together.
         self.get_logger().info('Ready: /mujoco/joint_commands; ' + ', '.join(self.sim.names))
+    def capture_scene(self, request, response):
+        try:
+            self.presets.idle()
+            response.message = json.dumps(self.presets.capture(), allow_nan=False)
+            response.success = True
+        except Exception as exc:
+            response.success = False; response.message = str(exc)
+        return response
+
+    def restore_scene(self, request, response):
+        from scene_presets import decode
+        try:
+            if len(request.parameters) != 1 or request.parameters[0].name != 'document' or request.parameters[0].value.type != ParameterType.PARAMETER_STRING:
+                raise ValueError('Provide exactly one document STRING parameter')
+            response.result.reason = self.presets.apply(decode(request.parameters[0].value.string_value))
+            response.result.successful = True
+        except Exception as exc:
+            response.result.successful = False; response.result.reason = str(exc)
+        return response
+
     def scene_status(self, request, response):
         response.success = True
         response.message = json.dumps({'obstacles':self.obstacles_enabled,'objects':self.objects.active,'performance':self.performance})
@@ -72,6 +97,12 @@ class Bridge(Node):
             response.success=True;response.message=f'{key}: repositioned'
         except ValueError as exc:response.success=False;response.message=str(exc)
         return response
+    def object_snapshot(self):
+        # Small truth stream: no robot qpos or camera render rate increase.
+        msg=String()
+        msg.data=json.dumps({'time':self.sim.data.time,'obstacles':self.obstacles_enabled,
+                             'objects':self.objects.snapshot()})
+        self.object_pub.publish(msg)
     def snapshot(self):
         msg=String()
         msg.data=json.dumps({'time':self.sim.data.time,'qpos':self.sim.data.qpos.tolist(),
@@ -182,6 +213,8 @@ def main():
                     now = time.monotonic()
                     node.performance['real_time_factor'] = (node.sim.data.time-perf_sim)/max(now-perf_wall,1e-6)
                     perf_wall,perf_sim = now,node.sim.data.time
+                if tick % 50 == 0:
+                    node.object_snapshot()
                 if tick % 100 == 0:
                     node.snapshot()
                 if viewer and time.monotonic() >= next_frame:

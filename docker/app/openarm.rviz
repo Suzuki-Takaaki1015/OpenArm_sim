@@ -23,10 +23,21 @@ Visualization Manager:
       Planning Request:
         Planning Group: right_arm
         Interactive Marker Size: 0.15
+      Scene Geometry:
+        Scene Alpha: 0.15
       Scene Robot:
-        Robot Alpha: 0.6
+        Robot Alpha: 1
       Planned Path:
         Trajectory Topic: /display_planned_path
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Physical objects (MuJoCo)
+      Enabled: true
+      Topic:
+        Value: /openarm/physical_objects
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Depth: 1
   Tools:
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Interact

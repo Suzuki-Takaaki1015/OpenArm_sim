@@ -134,6 +134,7 @@ class Demo(Node):
         if any(o.id==BOX for o in self.scene(PlanningSceneComponents.WORLD_OBJECT_NAMES).world.collision_objects):
             remove=CollisionObject();remove.id=BOX;remove.operation=CollisionObject.REMOVE
             s=PlanningScene();s.is_diff=True;s.robot_state.is_diff=True;s.world.collision_objects=[remove];self.apply(s)
+        self.pause_sync(False)
     def detach(self):
         if not self.attached:return
         item=AttachedCollisionObject();item.link_name=HAND;item.object.id=BOX;item.object.operation=CollisionObject.REMOVE

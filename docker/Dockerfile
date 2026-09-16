@@ -17,16 +17,30 @@ RUN printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https:
     libgl1 libgl1-mesa-dri libglx-mesa0 libglfw3 \
     xvfb x11vnc novnc websockify openbox x11-utils \
     && rm -rf /var/lib/apt/lists/*
+# All OS dependencies precede source COPYs; app edits must not fetch packages.
+RUN apt-get update && apt-get install -y --no-install-recommends mesa-utils python3-tk fonts-noto-cjk libosmesa6 libegl1 && rm -rf /var/lib/apt/lists/*
+# OpenArm development tools
+RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client build-essential cmake python3-colcon-common-extensions python3-rosdep && rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv --system-site-packages /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 COPY requirements.txt /opt/openarm/requirements.txt
 RUN pip install --no-cache-dir -r /opt/openarm/requirements.txt
+# Dependency inventory includes GUI and development packages.
+RUN useradd --create-home --uid 10001 sim \
+    && dpkg-query -W > /opt/openarm/os-packages.txt \
+    && pip freeze > /opt/openarm/python-packages.txt
+
+# Demo overlay is independent of runtime app and generated models.
+COPY demos /opt/openarm/demo_ws/src
+RUN . /opt/ros/jazzy/setup.sh && cd /opt/openarm/demo_ws && colcon build --symlink-install --packages-select openarm_demos
+
 COPY vendor/v1 /opt/openarm/models/v1
 COPY vendor/v2 /opt/openarm/models/v2
 COPY vendor/V2_MODEL_REVISION /opt/openarm/models/V2_MODEL_REVISION
 COPY vendor/LICENSE /opt/openarm/models/LICENSE
 COPY vendor/MODEL_REVISION /opt/openarm/models/MODEL_REVISION
 COPY vendor/ycb /opt/openarm/models/ycb
+# Keep generation after ALL app/model inputs to avoid stale baked configs.
 COPY app /opt/openarm/app
 COPY scripts /opt/openarm/scripts
 RUN OPENARM_VERSION=1 OPENARM_CONFIG=/opt/openarm/config/v1 OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml python /opt/openarm/app/generate_config.py \
@@ -34,15 +48,7 @@ RUN OPENARM_VERSION=1 OPENARM_CONFIG=/opt/openarm/config/v1 OPENARM_MODEL=/opt/o
     && OPENARM_VERSION=2 OPENARM_CONFIG=/opt/openarm/config/v2 OPENARM_MODEL=/opt/openarm/models/v2/simulation_robot.xml python /opt/openarm/app/generate_config.py
 COPY README.md ENVIRONMENT.md CAMERA_MOUNT.md THIRD_PARTY.md YCB.md OPL_2026.md /opt/openarm/
 RUN sed -i 's/\r$//' /opt/openarm/scripts/*.sh \
-    && chmod +x /opt/openarm/scripts/*.sh \
-    && useradd --create-home --uid 10001 sim \
-    && dpkg-query -W > /opt/openarm/os-packages.txt \
-    && pip freeze > /opt/openarm/python-packages.txt
-RUN apt-get update && apt-get install -y --no-install-recommends mesa-utils python3-tk fonts-noto-cjk libosmesa6 libegl1 && rm -rf /var/lib/apt/lists/*
-# OpenArm development tools
-RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client build-essential cmake python3-colcon-common-extensions python3-rosdep && rm -rf /var/lib/apt/lists/*
-COPY demos /opt/openarm/demo_ws/src
-RUN . /opt/ros/jazzy/setup.sh && cd /opt/openarm/demo_ws && colcon build --symlink-install --packages-select openarm_demos
+    && chmod +x /opt/openarm/scripts/*.sh
 ENV OPENARM_MODEL=/opt/openarm/models/v1/openarm_bimanual.xml \
     OPENARM_SCENE=/opt/openarm/models/v1/simulation_scene.xml \
     OPENARM_VIEWER_FPS=30 \
