@@ -19,6 +19,9 @@ ITEMS['box_left']['id']='openarm_grasp_box_left'
 ITEMS['box_left']['label']='左手用直方体'
 
 ITEMS.update(items())
+from opl_assets import PROXIES, FURNITURE
+ITEMS.update(PROXIES)
+ITEMS.update(FURNITURE)
 
 def camera_config():
     from camera_mount import config
@@ -35,7 +38,8 @@ def add_assets(scene_path):
     vec=lambda x:' '.join(str(v) for v in x)
     for index,(key,obj) in enumerate(ITEMS.items()):
         body=E.SubElement(world,'body',name=obj['id'],pos=f'{index} 0 -5',gravcomp='1')
-        E.SubElement(body,'freejoint',name=obj['id']+'_free')
+        if obj.get('furniture'):body.set('mocap','true')
+        else:E.SubElement(body,'freejoint',name=obj['id']+'_free')
         # Explicit inertia avoids making total mass depend on overlapping visual primitives.
         mass=obj['mass'];inertia=[mass*0.004,mass*0.004,mass*0.001] if key=='bottle' else [mass*(.04**2+.08**2)/12,mass*(.05**2+.08**2)/12,mass*(.05**2+.04**2)/12]
         if 'size' in obj:
@@ -44,6 +48,11 @@ def add_assets(scene_path):
         for i,g in enumerate(obj['geoms']):
             name=f'{obj["id"]}_{i}'
             attrs=dict(name=name,type=g['type'],pos=vec(g['pos']),rgba='0 0 0 0',contype='0',conaffinity='0',condim='4',friction='1 0.01 0.001')
+            # Thin proxy walls need a stiff, dominant contact response to avoid
+            # a falling small body crossing the opposite face during soft contact.
+            # Keep legacy/YCB contact settings unchanged.
+            if obj.get('opl') or obj.get('furniture'):
+                attrs.update(solref='0.004 1',solimp='0.95 0.99 0.001',priority='1')
             if g['type']=='mesh':
                 E.SubElement(assets,'mesh',name=name+'_mesh',file=g['mesh'])
                 attrs['mesh']=name+'_mesh';attrs['group']='3' if g['collision'] else '2'

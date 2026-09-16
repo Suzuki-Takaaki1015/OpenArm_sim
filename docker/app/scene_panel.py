@@ -6,15 +6,22 @@ from tkinter import ttk
 class ScenePanel:
     def __init__(self,root):
         self.root=root;self.queue=queue.Queue();self.busy=False;self.buttons=[];self.demo_proc=None;self.demo_stopping=False
-        root.title(f"OpenArm {os.environ.get('OPENARM_VERSION','1')}.0 - シーン・カメラ");root.geometry('700x930');root.minsize(650,900)
+        root.title(f"OpenArm {os.environ.get('OPENARM_VERSION','1')}.0 - シーン・カメラ");root.geometry('700x960');root.minsize(650,950)
         style=ttk.Style();style.configure('TLabel',font=('Noto Sans CJK JP',10));style.configure('TButton',font=('Noto Sans CJK JP',10),padding=7)
         frame=ttk.Frame(root,padding=18);frame.pack(fill='both',expand=True)
-        ttk.Label(frame,text='シーンとD435カメラ',font=('Noto Sans CJK JP',17,'bold')).pack(anchor='w')
+        header=ttk.Frame(frame);header.pack(fill='x')
+        ttk.Label(header,text='シーンとD435カメラ',font=('Noto Sans CJK JP',17,'bold')).pack(side='left')
+        self.doctor_busy=False;self.doctor_results=queue.Queue()
+        self.doctor_button=ttk.Button(header,text='環境診断（読み取り専用）',command=self.doctor)
+        self.doctor_button.pack(side='right')
+        root.after(100,self.poll_doctor)
         self.group(frame,'作業台',[('表示','on'),('非表示','off')])
         self.group(frame,'把持対象：直方体（100 g）',[('配置','box-on'),('削除','box-off'),('ランダム再配置','box-reposition'),('左箱を削除','box_left-off')])
         self.group(frame,'把持対象：500 mLボトル（満水相当・近似剛体）',[('配置','bottle-on'),('削除','bottle-off'),('ランダム再配置','bottle-reposition')])
-        self.ycb_panel=None
-        ttk.Button(frame,text='YCB オブジェクトライブラリを開く',command=self.open_ycb).pack(fill='x',pady=(8,0))
+        self.opl_panel=None;self.ycb_panel=None
+        catalogs=ttk.Frame(frame);catalogs.pack(fill='x',pady=(8,0))
+        ttk.Button(catalogs,text='YCB オブジェクトライブラリを開く',command=self.open_ycb).pack(side='left',fill='x',expand=True)
+        ttk.Button(catalogs,text='OPL 2026 物体・家具を開く',command=self.open_opl).pack(side='left',fill='x',expand=True,padx=(6,0))
         manual=ttk.LabelFrame(frame,text='位置を指定して配置（world座標）',padding=8);manual.pack(fill='x',pady=(10,0))
         row=ttk.Frame(manual);row.pack(fill='x')
         self.place_kind=tk.StringVar(value='直方体')
@@ -47,6 +54,40 @@ class ScenePanel:
         ttk.Label(frame,text='配置・削除は腕を止めてから。配置時は机も自動で有効になります。\n物体を削除してから机を非表示にしてください。\n把持デモは初期姿勢から実行。机と直方体を準備し、他の配置物体を削除します。',wraplength=560).pack(anchor='w',pady=(12,0))
         root.protocol('WM_DELETE_WINDOW',self.close)
         root.after(100,self.poll);root.after(300,lambda:self.request('status'))
+    def doctor(self):
+        if self.doctor_busy:return
+        self.doctor_busy=True;self.doctor_button.state(['disabled'])
+        window=tk.Toplevel(self.root);window.title('OpenArm 環境診断');window.geometry('850x650')
+        frame=ttk.Frame(window,padding=10);frame.pack(fill='both',expand=True)
+        scrollbar=ttk.Scrollbar(frame);scrollbar.pack(side='right',fill='y')
+        text=tk.Text(frame,wrap='word',yscrollcommand=scrollbar.set,font=('Noto Sans CJK JP',10))
+        text.pack(fill='both',expand=True);scrollbar.config(command=text.yview)
+        text.insert('end','診断中… 約7秒。ROSが応答しない場合も時間制限で終了します。\n')
+        text.config(state='disabled')
+        def worker():
+            try:
+                script=Path('/workspaces/OpenArm_sim/docker/app/oa_doctor.py')
+                if not script.is_file():script=Path(__file__).with_name('oa_doctor.py')
+                result=subprocess.run([sys.executable,str(script),'--inside'],capture_output=True,text=True,timeout=19)
+                output=result.stdout+result.stderr
+            except Exception as exc:output='診断できませんでした: '+str(exc)+'\n起動ログを確認してください。'
+            self.doctor_results.put((window,text,output))
+        threading.Thread(target=worker,daemon=True).start()
+
+    def poll_doctor(self):
+        try:window,text,output=self.doctor_results.get_nowait()
+        except queue.Empty:pass
+        else:
+            self.doctor_busy=False;self.doctor_button.state(['!disabled'])
+            if window.winfo_exists():
+                text.config(state='normal');text.delete('1.0','end');text.insert('end',output);text.config(state='disabled')
+        self.root.after(100,self.poll_doctor)
+
+    def open_opl(self):
+        from opl_panel import OplPanel
+        if self.opl_panel is not None and self.opl_panel.root.winfo_exists():self.opl_panel.root.lift();return
+        self.opl_panel=OplPanel(self);self.request('status')
+
     def open_ycb(self):
         from ycb_panel import YcbPanel
         if self.ycb_panel is not None and self.ycb_panel.root.winfo_exists():self.ycb_panel.root.lift();return
@@ -132,6 +173,7 @@ class ScenePanel:
                 try:
                     d=json.loads(text);s=d['scene'];c=d['camera'];mark=lambda v:'ON' if v else 'OFF'
                     self.state.set(f'机 {mark(s["obstacles"])} ／ 直方体 {mark(s["objects"]["box"])} ／ ボトル {mark(s["objects"]["bottle"])} ／ カメラ {mark(c["enabled"])}')
+                    if self.opl_panel is not None and self.opl_panel.root.winfo_exists():self.opl_panel.update(s['objects'])
                     if self.ycb_panel is not None and self.ycb_panel.root.winfo_exists():self.ycb_panel.update(s['objects'])
                     self.detail.set(c.get('error','') or f'シミュレーション速度: {s.get("performance",{}).get("real_time_factor",0):.2f} 倍（1.00が実時間）')
                 except Exception:self.state.set('状態取得に失敗');self.detail.set(text[-300:])

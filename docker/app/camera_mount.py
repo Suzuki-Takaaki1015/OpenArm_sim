@@ -30,6 +30,37 @@ def config():
     cfg['color_offset_m']=[0.,.015,0.]
     return cfg
 
+
+def exposed_v2_pedestal(source, destination):
+    """Remove the connected chest shell from the pinned binary STL, keeping the pedestal.
+
+    Work in source millimetres. Select by bounds, not triangle order; fail if the
+    upstream topology changes. The original vendor asset remains untouched.
+    """
+    raw=Path(source).read_bytes()
+    dtype=np.dtype([('normal','<f4',(3,)),('vertices','<f4',(3,3)),('attribute','<u2')])
+    count=int.from_bytes(raw[80:84],'little')
+    if len(raw)!=84+50*count:raise ValueError('Expected pinned binary pedestal STL')
+    triangles=np.frombuffer(raw,dtype=dtype,offset=84)
+    vertices,inverse=np.unique(triangles['vertices'].reshape(-1,3),axis=0,return_inverse=True)
+    faces=inverse.reshape(-1,3);parents=list(range(len(vertices)))
+    def find(i):
+        while parents[i]!=i:
+            parents[i]=parents[parents[i]];i=parents[i]
+        return i
+    for a,b,c in faces:
+        root=find(a);parents[find(b)]=root;parents[find(c)]=root
+    labels=np.array([find(i) for i in faces[:,0]])
+    shells=[]
+    for label in np.unique(labels):
+        points=triangles['vertices'][labels==label].reshape(-1,3)
+        low,high=points.min(0),points.max(0)
+        if np.allclose(low,[-84.7501,-80,613],atol=.02) and np.allclose(high,[65.2499,80,773],atol=.02):
+            shells.append(label)
+    if len(shells)!=1:raise ValueError('Pinned v2 chest shell cannot be identified safely')
+    kept=triangles[labels!=shells[0]]
+    Path(destination).write_bytes(raw[:80]+len(kept).to_bytes(4,'little')+kept.tobytes())
+
 def prepare_robot(path):
     cfg=config();d=definition(cfg);tree=E.parse(path);root=tree.getroot();assets=root.find('asset')
     body=root.find("worldbody/body[@name='openarm_body_link0']")
@@ -39,6 +70,18 @@ def prepare_robot(path):
         if g.get('mesh')=='body_link0_5.obj' or (g.get('name') or '').startswith('camera_mount_'):body.remove(g)
     for a in list(assets.findall('mesh')):
         if (a.get('name') or '').startswith('camera_mount_'):assets.remove(a)
+    if os.environ.get('OPENARM_VERSION','1')=='2':
+        visual=assets.find("mesh[@name='body_link0']")
+        if visual is None:raise ValueError('Expected pinned v2 pedestal visual')
+        meshdir=Path(root.find('compiler').get('meshdir'))
+        source=meshdir/'visual/body/body_link0.stl'
+        output=Path(path).with_name('camera_exposed_pedestal.stl')
+        exposed_v2_pedestal(source,output)
+        visual.set('file',str(output))
+        collision=assets.find("mesh[@name='body_link0_symp']")
+        if collision is None:raise ValueError('Expected pinned v2 pedestal collision')
+        collision.set('file',str(ASSETS/'pedestal_collision.obj'))
+        collision.set('scale','1 1 1')
     old=assets.find("mesh[@name='body_collision']")
     if old is not None:
         old.set('file',str(ASSETS/'pedestal_collision.obj'));old.set('scale','1 1 1')
@@ -50,8 +93,7 @@ def prepare_robot(path):
         attrs['class']=purpose
         if purpose=='visual':attrs.update(material='metal_silver' if name=='d435' else 'matte_black',rgba=color)
         E.SubElement(body,'geom',**attrs)
-    if os.environ.get('OPENARM_VERSION','1')=='1':
-        geom('column','column_collision.obj',[0,0,0],[1,0,0,0],'collision','')
+    geom('column','column_collision.obj',[0,0,0],[1,0,0,0],'collision','')
     # Axis permutation CAD (X,Y,Z) -> base (Z,X,Y), quaternion wxyz=(.5,-.5,-.5,-.5).
     geom('bracket','chest_mount.obj',d['mount_position'],[.5,-.5,-.5,-.5],'visual','.15 .15 .17 1')
     geom('bracket_collision','chest_mount.obj',d['mount_position'],[.5,-.5,-.5,-.5],'collision','')

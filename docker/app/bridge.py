@@ -43,7 +43,7 @@ class Bridge(Node):
         return response
     def set_object(self, key, request, response):
         try:
-            if request.data and not self.obstacles_enabled:
+            if request.data and not ITEMS[key].get('furniture') and not self.obstacles_enabled:
                 raise ValueError('Enable the table first')
             self.objects.set_enabled(key, request.data)
             response.success = True
@@ -53,10 +53,14 @@ class Bridge(Node):
         return response
     def place_object(self,key,request,response):
         try:
-            if not self.obstacles_enabled:raise ValueError('Enable the table first')
             values={p.name:p.value.double_value for p in request.parameters if p.value.type==ParameterType.PARAMETER_DOUBLE}
-            if len(request.parameters)!=3 or set(values)!={'x','y','yaw'}:raise ValueError('Provide exactly three DOUBLE parameters: x, y, yaw (radians)')
-            self.objects.set_enabled(key,True,reposition=True,pose=(values['x'],values['y'],values['yaw']))
+            supports=[p.value.string_value for p in request.parameters if p.name=='support' and p.value.type==ParameterType.PARAMETER_STRING]
+            if len(request.parameters)==1 and len(supports)==1:
+                self.objects.set_enabled(key,True,reposition=True,support=supports[0])
+                response.result.successful=True;response.result.reason=f'{key}: randomly placed';return response
+            if len(request.parameters)!=3+len(supports) or len(supports)>1 or set(values)!={'x','y','yaw'}:
+                raise ValueError('Provide x, y, yaw DOUBLE and optional support STRING')
+            self.objects.set_enabled(key,True,reposition=True,pose=(values['x'],values['y'],values['yaw']),support=supports[0] if supports else 'worktable')
             response.result.successful=True;response.result.reason=f'{key}: placed at specified position'
         except ValueError as exc:response.result.successful=False;response.result.reason=str(exc)
         return response
@@ -71,10 +75,11 @@ class Bridge(Node):
     def snapshot(self):
         msg=String()
         msg.data=json.dumps({'time':self.sim.data.time,'qpos':self.sim.data.qpos.tolist(),
+                             'mocap_pos':self.sim.data.mocap_pos.tolist(),'mocap_quat':self.sim.data.mocap_quat.tolist(),
                              'obstacles':self.obstacles_enabled,'objects':self.objects.snapshot()})
         self.snapshot_pub.publish(msg)
     def set_obstacles(self, request, response):
-        if not request.data and any(self.objects.active.values()):
+        if not request.data and any(self.objects.active[k] and self.objects.supports[k]=='worktable' for k in ITEMS):
             response.success=False;response.message='Remove the grasp objects before removing their table'
             return response
         if request.data == self.obstacles_enabled:

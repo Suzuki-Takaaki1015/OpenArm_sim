@@ -41,7 +41,7 @@ def apply(node, enabled):
     if not call(node,ApplyPlanningScene,'/apply_planning_scene',request).success:
         raise RuntimeError('MoveIt rejected planning scene')
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);p.add_argument('--support',default='worktable');args=p.parse_args()
     if args.mode.endswith('-place') and (args.x is None or args.y is None or not all(math.isfinite(v) for v in [args.x,args.y,args.yaw])):p.error('Specify finite --x and --y (metres), and --yaw (degrees)')
     rclpy.init();node=Node('openarm_scene_cli')
     try:
@@ -57,14 +57,21 @@ def main():
             print(result.message);return
         if args.mode.rsplit('-',1)[0] in ITEMS:
             key,action=args.mode.rsplit('-',1)
-            if action!='off':
+            if action!='off' and not ITEMS[key].get('furniture') and args.support=='worktable':
                 req=SetBool.Request();req.data=True
                 result=call(node,SetBool,'/openarm/set_obstacles',req)
                 if not result.success:raise RuntimeError(result.message)
                 apply(node,True)
+            if action=='reposition' and args.support!='worktable':
+                req=SetParametersAtomically.Request()
+                req.parameters=[Parameter(name='support',value=ParameterValue(type=ParameterType.PARAMETER_STRING,string_value=args.support))]
+                result=call(node,SetParametersAtomically,f'/openarm/objects/{key}/place',req).result
+                if not result.successful:raise RuntimeError(result.reason)
+                print(result.reason);return
             if action=='place':
                 request=SetParametersAtomically.Request()
                 request.parameters=[Parameter(name=k,value=ParameterValue(type=ParameterType.PARAMETER_DOUBLE,double_value=float(v))) for k,v in [('x',args.x),('y',args.y),('yaw',math.radians(args.yaw))]]
+                request.parameters.append(Parameter(name='support',value=ParameterValue(type=ParameterType.PARAMETER_STRING,string_value=args.support)))
                 placed=call(node,SetParametersAtomically,f'/openarm/objects/{key}/place',request).result
                 if not placed.successful:raise RuntimeError(placed.reason)
                 print(placed.reason);return

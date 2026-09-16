@@ -72,6 +72,8 @@ class Camera(Node):
         try:
             if self.model is None:self.initialize()
             m,d=self.model,self.data;d.qpos[:]=snapshot['qpos'];d.time=snapshot['time']
+            if m.nmocap:
+                d.mocap_pos[:]=snapshot['mocap_pos'];d.mocap_quat[:]=snapshot['mocap_quat']
             for obj in OBJECTS:
                 g=self.mj.mj_name2id(m,self.mj.mjtObj.mjOBJ_GEOM,obj['id']);m.geom_rgba[g]=obj['rgba'] if snapshot['obstacles'] else [0,0,0,0]
             for key,obj in ITEMS.items():
