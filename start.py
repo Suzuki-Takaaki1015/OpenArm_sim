@@ -80,7 +80,12 @@ def build_image(rebuild):
             proc = subprocess.Popen(['docker', 'compose', '--progress', 'plain', '-f', str(spec), 'build'], stdout=log, stderr=subprocess.STDOUT)
             try:
                 while proc.poll() is None:
-                    status('CHECK', f'Build running; log: {logfile}')
+                    with logfile.open('rb') as progress:
+                        progress.seek(0, 2)
+                        progress.seek(max(0, progress.tell() - 4096))
+                        lines = progress.read().decode('utf-8', errors='replace').splitlines()
+                    latest = next((line.strip() for line in reversed(lines) if line.strip()), '')
+                    status('CHECK', f'Build running: {latest[-240:]}' if latest else f'Build running; log: {logfile}')
                     time.sleep(5)
             except KeyboardInterrupt:
                 proc.terminate(); proc.wait(); raise

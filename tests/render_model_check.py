@@ -44,6 +44,34 @@ for version,name in [(1,'openarm_bimanual.xml'),(2,'simulation_robot.xml')]:
         assert any(np.allclose(c,[.65,.65,.68,1]) for c in colors)
         assert any(np.allclose(c,[.15,.15,.17,1]) for c in colors)
         assert len({v.get('name') for v in urdf.findall('.//visual/material')})==len(urdf.findall('.//visual/material'))
+        # Compare URDF geometry origins to compiled MuJoCo mesh frames.
+        # Undo MuJoCo's mesh recentering; RViz loads the original mesh vertices.
+        def rotation(q):
+            out=np.zeros(9);mj.mju_quat2Mat(out,np.asarray(q,dtype=float));return out.reshape(3,3)
+        def from_rpy(values):
+            r,p,y=values;cr,sr=np.cos(r),np.sin(r);cp,sp=np.cos(p),np.sin(p);cy,sy=np.cos(y),np.sin(y)
+            return np.array([[cy*cp,cy*sp*sr-sy*cr,cy*sp*cr+sy*sr],
+                             [sy*cp,sy*sp*sr+cy*cr,sy*sp*cr-cy*sr],[-sp,cp*sr,cp*cr]])
+        checked=0
+        for body in E.parse(path).getroot().iter('body'):
+            name=body.get('name');bid=mj.mj_name2id(m,mj.mjtObj.mjOBJ_BODY,name)
+            offsets={'visual':0,'collision':0}
+            for offset,geom in enumerate(body.findall('geom')):
+                gid=int(m.body_geomadr[bid])+offset
+                purpose='collision' if geom.get('class') in ('collision','fingertip','pedestal_collision') else 'visual'
+                linkname=f'{name}_display_{gid}' if name=='openarm_body_link0' and purpose=='visual' else name
+                link=urdf.find(f"link[@name='{linkname}']")
+                index=0 if linkname!=name else offsets[purpose]
+                element=link.findall(purpose)[index];offsets[purpose]+=1
+                frame=element.find('origin')
+                actual=from_rpy(np.fromstring(frame.get('rpy'),sep=' '))
+                meshid=int(m.geom_dataid[gid])
+                expected=rotation(m.geom_quat[gid])@rotation(m.mesh_quat[meshid]).T
+                expected_pos=m.geom_pos[gid]-expected@m.mesh_pos[meshid]
+                assert np.allclose(actual,expected,atol=1e-8),(version,name,geom.get('mesh'),'rotation')
+                assert np.allclose(np.fromstring(frame.get('xyz'),sep=' '),expected_pos,atol=1e-8),(version,name,'position')
+                checked+=1
+        print('PASS URDF/MuJoCo geometry frames',version,checked,flush=True)
         # Optical ray segmentation must not see the robot's supporting column.
         scene=mj.MjModel.from_xml_path(f'/opt/openarm/models/v{version}/simulation_scene.xml')
         d=mj.MjData(scene);mj.mj_forward(scene,d)

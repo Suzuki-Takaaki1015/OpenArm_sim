@@ -22,9 +22,7 @@ meshes = {e.get('name'): e for e in x.findall('asset/mesh')}
 joint_limits = {}
 
 def vec(v): return ' '.join(f'{n:.12g}' for n in v)
-def rpy(q):
-    w,x,y,z = map(float,q)
-    return [math.atan2(2*(w*x+y*z), 1-2*(x*x+y*y)), math.asin(np.clip(2*(w*y-z*x),-1,1)), math.atan2(2*(w*z+x*y),1-2*(y*y+z*z))]
+from model_transforms import quaternion_to_rpy as rpy
 def origin(e, xyz, quat): E.SubElement(e, 'origin', xyz=vec(xyz), rpy=vec(rpy(quat)))
 def floats(s): return list(map(float,s.split()))
 

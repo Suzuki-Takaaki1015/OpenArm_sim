@@ -24,7 +24,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends git openssh-cli
 RUN python3 -m venv --system-site-packages /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 COPY requirements.txt /opt/openarm/requirements.txt
-RUN pip install --no-cache-dir -r /opt/openarm/requirements.txt
+COPY bootstrap/install_requirements.py /opt/openarm/bootstrap/install_requirements.py
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    python /opt/openarm/bootstrap/install_requirements.py /opt/openarm/requirements.txt
 # Dependency inventory includes GUI and development packages.
 RUN useradd --create-home --uid 10001 sim \
     && dpkg-query -W > /opt/openarm/os-packages.txt \
