@@ -39,7 +39,7 @@ Ubuntu 24.04向けのセットアップ、シミュレーション、物体配�
 
 Ubuntu 24.04 **amd64（x86_64）**が対象です。Ubuntuの仮想マシンと、RTX 3060 Ti搭載のUbuntu機で検証しています。初回はインターネット接続とsudo権限が必要です。
 
-不足するPython・venv・Git・Docker・Composeは起動スクリプトが導入します。利用可能な既存Dockerは置き換えません。Gitがまだない場合は、GitHubの **Code → Download ZIP** から取得・展開できます。
+不足するPython・venv・Git・Docker・Compose・ホスト側VS Code・Dev Containers拡張は起動スクリプトが導入します。利用可能な既存Dockerは置き換えません。Gitがまだない場合は、GitHubの **Code → Download ZIP** から取得・展開できます。
 
 ### 1. リポジトリのフォルダーを開く
 
@@ -139,6 +139,17 @@ oa
 ```
 
 ### コンテナに接続したVS Codeを開く
+
+`bash start.sh` はホストにVS Codeがなければ[Microsoft公式のUbuntu向けパッケージ](https://code.visualstudio.com/docs/setup/linux)を導入し、実行ユーザーにDev Containers拡張を追加します。既存のVS Codeは再インストールしません。初回はインターネットとsudo権限が必要です。
+オフライン時はダウンロードせず、VS Codeまたは拡張が不足している場合は理由を表示して起動前に終了します。`--stop` / `--logs` はエディターの導入を行いません。
+
+ホストの開発環境だけを準備する場合：
+
+```bash
+bash start.sh --setup-only
+```
+
+GUIを開く場合はUbuntuのデスクトップ端末から実行してください。
 
 ```bash
 oa-code

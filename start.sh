@@ -73,6 +73,11 @@ if ((${#packages[@]})); then
 fi
 python3 -c 'import venv' >/dev/null 2>&1 || fail 'Python venv is unavailable.'
 say OK 'Python, venv, Git and Docker Compose installed'
+# Stop/log operations must remain usable without installing a desktop editor.
+case "${1:-}" in
+    --stop|--logs) ;;
+    *) python3 "$ROOT/scripts/setup_vscode.py" ;;
+esac
 if ! docker info >/dev/null 2>&1; then
     endpoint=${DOCKER_HOST:-$(docker context inspect --format '{{.Endpoints.docker.Host}}')}
     [[ $endpoint == unix:///var/run/docker.sock || $endpoint == unix:///run/docker.sock ]] || fail "Docker endpoint is unavailable: $endpoint. Start that Docker daemon first."

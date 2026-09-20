@@ -24,7 +24,7 @@ def main():
     args = p.parse_args()
     code = shutil.which('code')
     if not code:
-        raise RuntimeError('VS Code is not installed on the Ubuntu host. Install it from https://code.visualstudio.com/download and rerun oa-code.')
+        raise RuntimeError('VS Code is not installed on the Ubuntu host. Run bash start.sh --setup-only from your OpenArm_sim checkout to install VS Code and Dev Containers, then rerun oa-code.')
     if not shutil.which('docker'):
         raise RuntimeError('Docker command not found on the host.')
     info = json.loads(run(['docker', 'inspect', NAME]))[0]
