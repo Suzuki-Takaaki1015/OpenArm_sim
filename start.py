@@ -120,7 +120,12 @@ def gpu_candidates(system, endpoint):
         runtime = ['--runtime', 'nvidia'] if 'nvidia' in runtimes else []
         if not runtime:
             status('WARN', 'NVIDIA Container Toolkit/runtime is not configured on the host; see scripts/setup_nvidia.sh')
-        choices.append(('NVIDIA', [*runtime, '--gpus', 'all', '-e', 'NVIDIA_DRIVER_CAPABILITIES=graphics,display,utility', *shared]))
+        # Apply offload to both the probe and the simulation container.
+        # This selects the NVIDIA driver, not a particular RTX model.
+        choices.append(('NVIDIA', [*runtime, '--gpus', 'all',
+                                  '-e', 'NVIDIA_DRIVER_CAPABILITIES=graphics,display,utility',
+                                  '-e', '__NV_PRIME_RENDER_OFFLOAD=1',
+                                  '-e', '__GLX_VENDOR_LIBRARY_NAME=nvidia', *shared]))
     dri = Path('/dev/dri')
     if dri.is_dir():
         groups = sorted({p.stat().st_gid for p in dri.iterdir() if p.name.startswith(('renderD','card'))})
@@ -143,7 +148,9 @@ def select_backend(args, system, endpoint):
         try:
             result = docker('run','--rm',*opts,IMAGE,'glxinfo','-B',timeout=30,check=False)
             (STATE/f'gpu-{name.split("/")[0]}.log').write_text(result.stdout,encoding='utf-8')
-            if result.returncode == 0 and hardware_renderer(result.stdout):
+            renderer_lines = [line for line in result.stdout.splitlines() if 'OpenGL renderer string:' in line]
+            matches_backend = name != 'NVIDIA' or any('nvidia' in line.lower() for line in renderer_lines)
+            if result.returncode == 0 and hardware_renderer(result.stdout) and matches_backend:
                 renderer = next(s.strip() for s in result.stdout.splitlines() if 'OpenGL renderer string:' in s)
                 return 'gpu', opts, renderer
             reason = f'{name} OpenGL unavailable or software renderer; see .openarm/gpu-*.log'
