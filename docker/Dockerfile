@@ -2,10 +2,13 @@
 ARG ROS_BASE=ros:jazzy-ros-base-noble
 FROM ${ROS_BASE}
 ENV DEBIAN_FRONTEND=noninteractive
-ARG ROS_APT_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/ros2/ubuntu
-RUN printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::http::Pipeline-Depth "0";\n' > /etc/apt/apt.conf.d/99openarm-network \
-    && find -L /etc/apt/sources.list.d -type f -exec sed -i "s|http://packages.ros.org/ros2/ubuntu|${ROS_APT_MIRROR}|g; s|https://packages.ros.org/ros2/ubuntu|${ROS_APT_MIRROR}|g; s|http://|https://|g; s/^Types: .*/Types: deb/; /^deb-src /d" {} + \
-    && apt-get update && apt-get install -y --no-install-recommends \
+ARG ROS_APT_MIRROR=http://packages.ros.org/ros2/ubuntu
+COPY bootstrap/install_apt.sh /opt/openarm/bootstrap/install_apt.sh
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean \
+    && printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::http::Pipeline-Depth "0";\n' > /etc/apt/apt.conf.d/99openarm-network \
+    && find -L /etc/apt/sources.list.d -type f -exec sed -i "s|http://packages.ros.org/ros2/ubuntu|${ROS_APT_MIRROR}|g; s|https://packages.ros.org/ros2/ubuntu|${ROS_APT_MIRROR}|g; s|http://archive.ubuntu.com|https://archive.ubuntu.com|g; s|http://security.ubuntu.com|https://security.ubuntu.com|g; s/^Types: .*/Types: deb/; /^deb-src /d" {} + \
+    && sh /opt/openarm/bootstrap/install_apt.sh \
     python3-venv python3-pip ros-jazzy-rclpy ros-jazzy-sensor-msgs \
     ros-jazzy-rosgraph-msgs ros-jazzy-std-srvs \
     ros-jazzy-moveit-ros-move-group ros-jazzy-moveit-ros-visualization \

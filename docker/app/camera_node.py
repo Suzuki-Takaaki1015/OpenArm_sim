@@ -24,6 +24,11 @@ class Camera(Node):
         self.create_service(SetBool,'/openarm/camera/set_enabled',self.toggle)
         self.create_service(Trigger,'/openarm/camera/status',self.status)
         self.pub={}
+        self.wrists={}
+        if os.environ.get('OPENARM_VERSION')=='2':
+            for side in ('left','right'):
+                stream=f'wrist_{side}'
+                self.pub[stream]=(self.create_publisher(Image,f'/camera/{side}_wrist/color/image_raw',IMAGE_QOS),self.create_publisher(CameraInfo,f'/camera/{side}_wrist/color/camera_info',IMAGE_QOS))
         for stream in ('color','depth','aligned_depth_to_color'):
             name='image_raw' if stream=='color' or stream=='aligned_depth_to_color' else 'image_rect_raw'
             self.pub[stream]=(self.create_publisher(Image,f'/camera/camera/{stream}/{name}',IMAGE_QOS),self.create_publisher(CameraInfo,f'/camera/camera/{stream}/camera_info',IMAGE_QOS))
@@ -31,7 +36,7 @@ class Camera(Node):
         self.create_timer(1/self.cfg['fps'],self.render)
     def state(self,msg):self.latest=json.loads(msg.data)
     def status(self,req,res):
-        res.success=True;res.message=json.dumps({'enabled':self.enabled,'error':self.error,'mount_calibrated':self.cfg['calibration_verified']});return res
+        res.success=True;res.message=json.dumps({'enabled':self.enabled,'error':self.error,'mount_calibrated':self.cfg['calibration_verified'],'wrist_cameras':list(self.wrists)});return res
     def toggle(self,req,res):
         self.enabled=req.data;self.error='';res.success=True;res.message='camera on' if req.data else 'camera off';return res
     def transforms(self):
@@ -44,7 +49,7 @@ class Camera(Node):
             t=TransformStamped();t.header.frame_id='camera_link';t.child_frame_id=f'camera_{name}_optical_frame'
             if name=='color':t.transform.translation.x,t.transform.translation.y,t.transform.translation.z=cfg['color_offset_m']
             t.transform.rotation.x=-.5;t.transform.rotation.y=.5;t.transform.rotation.z=-.5;t.transform.rotation.w=.5;out.append(t)
-        self.tf.sendTransform(out)
+        self.base_transforms=out;self.tf.sendTransform(out)
     def initialize(self):
         import mujoco
         self.mj=mujoco;self.model=mujoco.MjModel.from_xml_path(os.environ['OPENARM_SCENE']);self.data=mujoco.MjData(self.model)
@@ -52,13 +57,32 @@ class Camera(Node):
         self.model.vis.global_.offheight=max(self.cfg[k]['height'] for k in ('color','depth'))
         for stream in ('color','depth'):
             c=self.cfg[stream];self.renderers[stream]=mujoco.Renderer(self.model,height=c['height'],width=c['width'])
-        self.get_logger().info('RGB-D rendering enabled; ideal optics, official bracket with project-defined M6 height')
+        if os.environ.get('OPENARM_VERSION')=='2':
+            transforms=[]
+            for side in ('left','right'):
+                name=f'camera_wrist_{side}'
+                cid=mujoco.mj_name2id(self.model,mujoco.mjtObj.mjOBJ_CAMERA,name)
+                if cid<0: raise RuntimeError('Official wrist camera missing: '+name)
+                stream=f'wrist_{side}'
+                # Keep official aspect ratio and field of view; reduce resolution for VM use.
+                self.wrists[stream]={'width':320,'height':200,'vertical_fov_deg':float(self.model.cam_fovy[cid]),'camera':name}
+                self.renderers[stream]=mujoco.Renderer(self.model,height=200,width=320)
+                transform=TransformStamped()
+                transform.header.frame_id=mujoco.mj_id2name(self.model,mujoco.mjtObj.mjOBJ_BODY,int(self.model.cam_bodyid[cid]))
+                transform.child_frame_id=f'camera_{side}_wrist_optical_frame'
+                transform.transform.translation.x,transform.transform.translation.y,transform.transform.translation.z=map(float,self.model.cam_pos[cid])
+                # MuJoCo camera: -Z forward/+Y up; ROS optical: +Z forward/+Y down.
+                q=np.empty(4);mujoco.mju_mulQuat(q,self.model.cam_quat[cid],np.array([0.,1.,0.,0.]))
+                transform.transform.rotation.w,transform.transform.rotation.x,transform.transform.rotation.y,transform.transform.rotation.z=map(float,q)
+                transforms.append(transform)
+            self.tf.sendTransform(self.base_transforms+transforms)
+        self.get_logger().info('Chest RGB-D and available official wrist RGB cameras enabled')
     def publish(self,stream,pixels,snapshot):
-        c=self.cfg['depth' if stream=='depth' else 'color'];w,h=c['width'],c['height']
-        frame='camera_depth_optical_frame' if stream=='depth' else 'camera_color_optical_frame'
+        c=self.wrists[stream] if stream in self.wrists else self.cfg['depth' if stream=='depth' else 'color'];w,h=c['width'],c['height']
+        frame=f'camera_{stream[6:]}_wrist_optical_frame' if stream in self.wrists else 'camera_depth_optical_frame' if stream=='depth' else 'camera_color_optical_frame'
         msg=Image();ns=round(snapshot['time']*1e9);msg.header.stamp.sec,msg.header.stamp.nanosec=divmod(ns,1000000000);msg.header.frame_id=frame
         msg.height=h;msg.width=w;msg.is_bigendian=0
-        if stream=='color':msg.encoding='rgb8';msg.step=w*3;msg.data=pixels.astype('uint8').tobytes()
+        if stream=='color' or stream in self.wrists:msg.encoding='rgb8';msg.step=w*3;msg.data=pixels.astype('uint8').tobytes()
         else:
             valid=np.isfinite(pixels)&(pixels>=self.cfg['min_depth_m'])&(pixels<=self.cfg['max_depth_m'])
             pixels=np.where(valid,pixels*1000,0);msg.encoding='16UC1';msg.step=w*2;msg.data=np.rint(pixels).astype('<u2').tobytes()
@@ -83,6 +107,8 @@ class Camera(Node):
             color=self.renderers['color'];color.disable_depth_rendering();color.update_scene(d,camera='d435_color');self.publish('color',color.render().copy(),snapshot)
             color.enable_depth_rendering();self.publish('aligned_depth_to_color',color.render().copy(),snapshot)
             depth=self.renderers['depth'];depth.enable_depth_rendering();depth.update_scene(d,camera='d435_depth');self.publish('depth',depth.render().copy(),snapshot)
+            for stream,c in self.wrists.items():
+                renderer=self.renderers[stream];renderer.update_scene(d,camera=c['camera']);self.publish(stream,renderer.render().copy(),snapshot)
             self.last_stamp=snapshot['time']
         except Exception as exc:
             self.error=str(exc);self.enabled=False;self.get_logger().error('Camera disabled: '+self.error)

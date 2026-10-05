@@ -41,7 +41,7 @@ class ScenePanel:
         for label,y in [('手前・左',.20),('手前・右',-.20)]:
             ttk.Button(row,text=label,command=lambda y=y:self.preset(y)).pack(side='left',padx=4)
         ttk.Label(manual,text='Xは前方、Yは左方向。高さは机上へ自動調整。衝突・机外への配置は拒否します。',wraplength=620).pack(anchor='w')
-        self.group(frame,'胸部D435：RGB・深度・CameraInfo・TF',[('配信開始','camera-on'),('配信停止','camera-off')])
+        self.group(frame,'カメラ配信：胸部D435＋Ver2左右手内RGB',[('配信開始','camera-on'),('配信停止','camera-off')])
         ttk.Label(frame,text='カメラは初期OFF・2 fps。公式マウント／M6固定高さ740 mm（本環境の基準）。',wraplength=570).pack(anchor='w',pady=(4,8))
         presets=ttk.LabelFrame(frame,text='名前付きシーン保存・復元',padding=8);presets.pack(fill='x',pady=(4,0))
         self.preset_name=tk.StringVar(value='')

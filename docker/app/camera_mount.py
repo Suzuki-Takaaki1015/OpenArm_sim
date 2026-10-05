@@ -105,13 +105,14 @@ def prepare_robot(path):
         if collision is None:raise ValueError('Expected pinned v2 pedestal collision')
         collision.set('file',str(ASSETS/'pedestal_collision.obj'))
         collision.set('scale','1 1 1')
+        collision.attrib.pop('content_type',None) # The replacement is OBJ, not the original STL.
     else:
         for g in body.findall('geom'):
             if g.get('mesh')=='body_link0_3.obj' and g.get('class')=='visual':
                 g.set('material','metal_silver')
     old=assets.find("mesh[@name='body_collision']")
     if old is not None:
-        old.set('file',str(ASSETS/'pedestal_collision.obj'));old.set('scale','1 1 1')
+        old.set('file',str(ASSETS/'pedestal_collision.obj'));old.set('scale','1 1 1');old.attrib.pop('content_type',None)
     vec=lambda values:' '.join(f'{float(v):.12g}' for v in values)
     def geom(name,file,pos,quat,purpose,color):
         asset='camera_mount_'+name

@@ -29,6 +29,8 @@ Ubuntu 24.04向けのセットアップ、シミュレーション、物体配�
 - [把持デモを実行する](#demos)
 - [起動オプション・オフライン利用](#startup-options)
 - [ROS 2開発ガイドとAPI一覧](#ros-development-guide)
+- [モーター・関節と制御先](#motor-api)
+- [全カメラのトピック・サービス・TF](#ros-camera)
 - [困ったとき](#ros-troubleshooting)
 - [関連資料・ライセンス](#documents)
 
@@ -665,6 +667,91 @@ flowchart LR
 `move_group_private_...`、`transform_listener_impl_...`、`interactive_marker_display_...` など末尾が変化するノードは内部生成名です。コードに固定して書かないでください。シーンGUI自体はTkアプリで、操作の都度CLI経由でROSサービス等を呼びます。
 
 <a id="ros-topics"></a>
+<a id="motor-api"></a>
+### 各モーター・関節と制御先
+
+このシミュレーションでは、**モーター1台ごとのTopicやServiceはありません**。
+左右の腕・グリッパーごとのcontrollerに軌道を送り、全関節共通の `/joint_states` から名前で状態を取得します。
+実機のCAN IDや電流指令を受け付けるインターフェースではありません。
+以下の名前はOpenArm 1.0 / 2.0共通です。J番号はモデル上の関節番号です。
+
+| 関節番号 | 左腕のJoint名 | 右腕のJoint名 | 位置 / 速度の単位 |
+|---|---|---|---|
+| J1 | `openarm_left_joint1` | `openarm_right_joint1` | rad / rad/s |
+| J2 | `openarm_left_joint2` | `openarm_right_joint2` | rad / rad/s |
+| J3 | `openarm_left_joint3` | `openarm_right_joint3` | rad / rad/s |
+| J4 | `openarm_left_joint4` | `openarm_right_joint4` | rad / rad/s |
+| J5 | `openarm_left_joint5` | `openarm_right_joint5` | rad / rad/s |
+| J6 | `openarm_left_joint6` | `openarm_right_joint6` | rad / rad/s |
+| J7 | `openarm_left_joint7` | `openarm_right_joint7` | rad / rad/s |
+
+| モデル | 左グリッパーの指令Joint名 | 右グリッパーの指令Joint名 | 単位 |
+|---|---|---|---|
+| 1.0 | `openarm_left_finger_joint1`, `openarm_left_finger_joint2` | `openarm_right_finger_joint1`, `openarm_right_finger_joint2` | m / m/s |
+| 2.0 | `openarm_left_finger_joint1` | `openarm_right_finger_joint1` | rad / rad/s |
+
+2.0の `openarm_left_finger_joint2` と `openarm_right_finger_joint2` はmimic関節です。独立した指令を送らないでください。
+1.0の2つの指関節はシミュレーションの表現であり、実機のグリッパーモーターが2個ある意味ではありません。
+モーター型番・トルクとシミュレーションでの近似は [HARDWARE_MODEL.md](HARDWARE_MODEL.md) を参照してください。
+
+**軌道指令Topic**（型はすべて `trajectory_msgs/msg/JointTrajectory`）：
+
+| 制御対象 | 指令Topic | MoveItのPlanning Group |
+|---|---|---|
+| 左腕 J1〜J7 | `/left_arm_controller/joint_trajectory` | `left_arm` |
+| 右腕 J1〜J7 | `/right_arm_controller/joint_trajectory` | `right_arm` |
+| 左グリッパー | `/left_gripper_controller/joint_trajectory` | `left_gripper` |
+| 右グリッパー | `/right_gripper_controller/joint_trajectory` | `right_gripper` |
+
+**結果・中止を扱う軌道実行Action**（型はすべて `control_msgs/action/FollowJointTrajectory`）：
+
+| 制御対象 | Action名 |
+|---|---|
+| 左腕 | `/left_arm_controller/follow_joint_trajectory` |
+| 右腕 | `/right_arm_controller/follow_joint_trajectory` |
+| 左グリッパー | `/left_gripper_controller/follow_joint_trajectory` |
+| 右グリッパー | `/right_gripper_controller/follow_joint_trajectory` |
+
+腕の軌道には7関節すべてを指定します。各 `points[].positions` は `joint_names` と同じ並びです。
+これらへ直接送る指令はMoveItの衝突判定を経由しません。衝突回避を含む動作にはMoveItで計画した軌道を使ってください。
+ActionはTopicやServiceとは別のAPIで、受付・経過・終了結果・キャンセルを扱います。
+
+**controller別の状態Topic・問い合わせService**：
+
+| 制御対象 | 状態Topic | 軌道状態の問い合わせService |
+|---|---|---|
+| 左腕 | `/left_arm_controller/controller_state` | `/left_arm_controller/query_state` |
+| 右腕 | `/right_arm_controller/controller_state` | `/right_arm_controller/query_state` |
+| 左グリッパー | `/left_gripper_controller/controller_state` | `/left_gripper_controller/query_state` |
+| 右グリッパー | `/right_gripper_controller/controller_state` | `/right_gripper_controller/query_state` |
+
+状態Topicの型は `control_msgs/msg/JointTrajectoryControllerState`、Serviceの型は `control_msgs/srv/QueryTrajectoryState` です。
+`query_state` は軌道上の指定時刻の参照状態を問い合わせるもので、最新の実測関節角は `/joint_states` を購読します。
+`/joint_states` の型は `sensor_msgs/msg/JointState`。`name[i]` に対応する値が `position[i]`、`velocity[i]` です。
+`effort` は空の場合もあるため、配列の有無を確認してください。
+
+**以下は `oa` または `oa-code` のコンテナ内端末で実行します。**
+
+```bash
+ros2 topic echo /joint_states --once
+```
+
+```bash
+ros2 topic echo /right_arm_controller/controller_state --once
+```
+
+```bash
+ros2 param get /left_arm_controller joints
+```
+
+```bash
+ros2 param get /right_gripper_controller joints
+```
+
+```bash
+ros2 service call /controller_manager/list_controllers controller_manager_msgs/srv/ListControllers '{}'
+```
+
 ### トピック一覧
 
 型のフィールドと、実際の配信元・購読先・QoSを調べる例です。
@@ -712,7 +799,7 @@ ros2 topic info /joint_states -v
 
 </details>
 
-このほかcontroller managerの `activity`、`statistics/*`、`introspection_data/*`、各controllerの `transition_event`、RVizのinteractive marker用 `update` / `feedback` があります。ライブラリの版で増減するため、稼働中のトピック一覧を正としてください。画像6トピックは下のカメラ節にまとめています。
+このほかcontroller managerの `activity`、`statistics/*`、`introspection_data/*`、各controllerの `transition_event`、RVizのinteractive marker用 `update` / `feedback` があります。ライブラリの版で増減するため、稼働中のトピック一覧を正としてください。画像とCameraInfoの全10トピック（1.0は6、2.0は10）は下のカメラ節にまとめています。
 
 `JointState.name` と `position` は同じインデックスで対応します。左右や指が並ぶ順序を固定で仮定せず、`dict(zip(msg.name, msg.position))` のように名前で取得します。回転関節のpositionはrad、速度はrad/s、直動関節はm、m/sです。effortの有無・単位は供給元と関節種類に依存し、実測モータートルクと同一とは限りません。
 
@@ -765,14 +852,16 @@ ros2 interface show sensor_msgs/msg/JointState
 
 | Service | 型 | 要求と応答・使いどころ |
 |---|---|---|
+| `/openarm/scene/capture` | `std_srvs/srv/Trigger` | `{}` → シーン保存用のJSON文書をmessageで取得 |
+| `/openarm/scene/restore` | `rcl_interfaces/srv/SetParametersAtomically` | STRINGの `document` パラメーター1つに保存文書を指定。応答はresult.successful / reason |
 | `/openarm/scene/status` | `std_srvs/srv/Trigger` | `{}` → `success`、`message`内のJSONに机・物体ON/OFFとreal_time_factor |
 | `/openarm/set_obstacles` | `std_srvs/srv/SetBool` | `data: true/false` → MuJoCoの**作業台のみ**切替。旧名称だが固定障害物群ではない |
 | `/openarm/objects/<key>/set_enabled` | `std_srvs/srv/SetBool` | trueで配置、falseで削除。既にONの物体はtrueだけでは再配置しない |
 | `/openarm/objects/<key>/reposition` | `std_srvs/srv/Trigger` | `{}` → ランダム再配置。未表示なら新規配置 |
-| `/openarm/objects/<key>/place` | `rcl_interfaces/srv/SetParametersAtomically` | DOUBLEのx,y,yawをちょうど3つ指定。応答は `result.successful` と `result.reason` |
+| `/openarm/objects/<key>/place` | `rcl_interfaces/srv/SetParametersAtomically` | 座標指定はDOUBLEのx,y,yaw（m,m,rad）。配置面はSTRINGのsupportで指定できます。応答は `result.successful` と `result.reason` |
 | `/openarm/objects/pause_sync` | `std_srvs/srv/SetBool` | 計画同期だけ一時停止／再開。停止応答は送信中の更新完了を待つ。実物Marker・物理・腕は停止しない。把持デモはattachment切替後に再開 |
-| `/openarm/camera/set_enabled` | `std_srvs/srv/SetBool` | D435画像生成のON/OFF。初期OFF |
-| `/openarm/camera/status` | `std_srvs/srv/Trigger` | JSONでenabled、error、mount_calibratedを返す |
+| `/openarm/camera/set_enabled` | `std_srvs/srv/SetBool` | 胸部D435と、2.0では左右手内カメラも一括ON/OFF。初期OFF。左右個別のON/OFFサービスはありません |
+| `/openarm/camera/status` | `std_srvs/srv/Trigger` | JSONでenabled、error、mount_calibrated、wrist_camerasを返す。wrist_camerasは初期化後に追加されるため配信前は空の場合があります |
 | `/get_planning_scene` | `moveit_msgs/srv/GetPlanningScene` | componentsで指定した計画シーン要素を取得 |
 | `/apply_planning_scene` | `moveit_msgs/srv/ApplyPlanningScene` | シーン差分を適用、`success`を確認。結果が必要なアプリではTopicへの投げっぱなしより扱いやすい |
 | `/plan_kinematic_path` | `moveit_msgs/srv/GetMotionPlan` | 制約を満たす軌道を計画。計画だけで腕は動かない |
@@ -885,9 +974,14 @@ FollowJointTrajectoryの成功値は `error_code=0`。MoveItErrorCodesのSUCCESS
 既存の学習用ソースは `oa-code` → `src/openarm_demos/openarm_demos/` の `grasp_demo.py`、`bimanual_demo.py` です。両腕デモは左右のActionを同じ開始時刻で送り、片方の失敗時に残る動作も停止する処理を含みます。MoveItのgroup名は `left_arm`、`right_arm`、`both_arms`、左右gripper（正確な定義は `$OPENARM_CONFIG/openarm.srdf`）を確認して使用してください。
 
 <a id="ros-camera"></a>
-### D435画像・深度・TF
+### 全カメラのトピック・サービス・TF
 
-カメラは初期OFFです。Topic名が一覧に見えていても、OFFなら画像は流れません。
+胸部D435は両モデル共通、左右手内RGBカメラは2.0のみです。カメラは初期OFFです。Topic名が一覧に見えていても、OFFなら画像は流れません。以下の共通サービスで、そのモデルのカメラを一括で開始・停止します。
+
+| Service名 | 型 | 用途 |
+|---|---|---|
+| `/openarm/camera/set_enabled` | `std_srvs/srv/SetBool` | `data: true`で配信開始、falseで停止。success/messageを確認 |
+| `/openarm/camera/status` | `std_srvs/srv/Trigger` | enabled/errorなどをmessage内のJSONで確認。success=trueだけで配信中とは判断しない |
 
 ```bash
 ros2 service call /openarm/camera/set_enabled std_srvs/srv/SetBool '{data: true}'
@@ -915,8 +1009,7 @@ ros2 topic hz /camera/camera/color/image_raw
 ros2 service call /openarm/camera/set_enabled std_srvs/srv/SetBool '{data: false}'
 ```
 
-<details>
-<summary>カメラの全6トピック（クリックで開く）</summary>
+**胸部D435（1.0 / 2.0共通）：6トピック**
 
 | Topic | 型・encoding | 既定サイズ | フレーム・用途 |
 |---|---|---|---|
@@ -927,9 +1020,50 @@ ros2 service call /openarm/camera/set_enabled std_srvs/srv/SetBool '{data: false
 | `/camera/camera/aligned_depth_to_color/image_raw` | `sensor_msgs/msg/Image`、16UC1 | 320×180 | camera_color_optical_frame、RGBと同じ画素座標の深度 |
 | `/camera/camera/aligned_depth_to_color/camera_info` | `sensor_msgs/msg/CameraInfo` | 320×180 | RGBに合わせた深度の内部パラメータ |
 
-</details>
+**左右手内カメラ（2.0のみ）：4トピック**
 
-既定2 fps、Reliable/Volatile、depth=2。RGBはBGRではありません。深度は**ミリメートルの符号なし16bit**、0は無効値です。メートルへ直すには1000で割ります。既定の有効範囲は0.2〜10 mです。RVizのImage displayでcolor/image_rawを選ぶとリアルタイムに確認できます。
+| Topic | 型・encoding | 既定サイズ | optical frame |
+|---|---|---|---|
+| `/camera/left_wrist/color/image_raw` | `sensor_msgs/msg/Image`、rgb8 | 320×200 | `camera_left_wrist_optical_frame` |
+| `/camera/left_wrist/color/camera_info` | `sensor_msgs/msg/CameraInfo` | 320×200 | `camera_left_wrist_optical_frame` |
+| `/camera/right_wrist/color/image_raw` | `sensor_msgs/msg/Image`、rgb8 | 320×200 | `camera_right_wrist_optical_frame` |
+| `/camera/right_wrist/color/camera_info` | `sensor_msgs/msg/CameraInfo` | 320×200 | `camera_right_wrist_optical_frame` |
+
+手内カメラに深度・aligned depth・PointCloud2の配信はありません。胸部カメラにもPointCloud2生成ノードは標準では起動しません。
+全カメラの画像時刻はMuJoCoのシミュレーション時刻です。2.0の手内カメラも既定2fpsで、胸部と共通の配信切替を使います。
+
+```bash
+ros2 topic echo /camera/left_wrist/color/camera_info --once
+```
+
+```bash
+ros2 topic hz /camera/right_wrist/color/image_raw
+```
+
+RVizの **Add → Image → Topic** で各 `image_raw` を選ぶと確認できます。
+
+**カメラのTF対応**：TFメッセージは `/tf` / `/tf_static`（`tf2_msgs/msg/TFMessage`）です。
+
+| カメラ | 固定の取付変換 | 備考 |
+|---|---|---|
+| 胸部RGB | `openarm_body_link0 → camera_link → camera_color_optical_frame` | 両モデル共通 |
+| 胸部深度 | `camera_link → camera_depth_optical_frame` | 両モデル共通 |
+| 左手 | `openarm_left_ee_base_link → camera_left_wrist_optical_frame` | 2.0のみ。配信開始・初期化後に追加 |
+| 右手 | `openarm_right_ee_base_link → camera_right_wrist_optical_frame` | 2.0のみ。配信開始・初期化後に追加 |
+
+手首とカメラの相対変換は固定ですが、親リンクが動くためworldから見たカメラ姿勢は変わります。
+座標を変換するときは画像のframe_idと撮影時刻を使ってください。
+
+```bash
+ros2 run tf2_ros tf2_echo world camera_left_wrist_optical_frame
+```
+
+```bash
+ros2 run tf2_ros tf2_echo world camera_right_wrist_optical_frame
+```
+
+
+全画像・CameraInfoは既定2 fps、Reliable/Volatile、QoSのキュー長depth=2です。RGBはBGRではありません。胸部D435の深度は**ミリメートルの符号なし16bit**、0は無効値です。メートルへ直すには1000で割ります。既定の有効範囲は0.2〜10 mです。RVizのImage displayでcolor/image_rawを選ぶとリアルタイムに確認できます。
 
 認識結果のRGB画素(u,v)から位置を求める際は、解像度の異なる生depth画像を同じ(u,v)で参照せず、aligned_depth_to_colorを使います。CameraInfo.kからfx,fy,cx,cyを読み、深度Zをmにして `X=(u-cx)*Z/fx`、`Y=(v-cy)*Z/fy` とするとカメラ光学座標の点になります。これは物体表面の一点であり、物体中心や把持姿勢を直接与えるものではありません。
 
@@ -1226,3 +1360,19 @@ tail -f .openarm/build.log
 初回イメージが完成していない場合、オフラインでは不足パッケージを取得できません。通信が回復してから再実行してください。
 
 RViz用URDFの胸部ブラケットは、ピッチ±90度の姿勢でも元のMuJoCoと同じ回転になるよう変換します。
+
+
+### OpenArm 2.0 手内カメラのモデル出典
+
+API名・使い方は[全カメラのトピック・サービス・TF](#ros-camera)にまとめています。
+位置・姿勢・垂直画角66度は[同梱した公式MuJoCoモデル](https://github.com/enactic/openarm_mujoco/tree/ce761e2eb1079c3e7cafe515a375930adedad190)の `camera_wrist_left/right` を利用します。
+公式の960×600と同じ縦横比の320×200へ縮小し、負荷を抑えています。
+CameraInfoは理想ピンホールモデルで、実機の校正値ではありません。
+画像追加だけで物体認識・把持姿勢選択・深度からの障害物登録が自動化されるわけではありません。
+
+### ROSパッケージ取得時の接続エラー
+
+ビルドの既定取得先は公式 `http://packages.ros.org/ros2/ubuntu` です。
+APTの署名・パッケージハッシュ検証は維持しています。まず公式へ接続し、取得失敗・6分のダウンロード制限超過時は清華大学ミラーへ切り替えて再試行します。ダウンロード済みパッケージはビルドキャッシュに保持します。展開・設定処理には時間制限をかけません。
+`Unable to connect` はパッケージ配布先への通信失敗です。`lookup auth.docker.io ... server misbehaving` はDocker HubへのDNS解決失敗で、別の段階です。
+既存の対応イメージがある場合だけ `bash start.sh --offline` でビルドなしの起動ができます。
