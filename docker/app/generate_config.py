@@ -13,6 +13,8 @@ V2 = os.environ.get('OPENARM_VERSION','1')=='2'
 OUT.mkdir(parents=True, exist_ok=True)
 from camera_mount import prepare_robot
 prepare_robot(SRC)
+from lidar_mount import prepare_robot as prepare_lidar
+prepare_lidar(SRC)
 m = mujoco.MjModel.from_xml_path(str(SRC))
 x = E.parse(SRC).getroot()
 robot = E.Element('robot', name='openarm')

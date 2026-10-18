@@ -6,6 +6,8 @@ import numpy as np
 
 class Simulation:
     def __init__(self, path=None):
+        # Avoid a separate 500 MiB compiler asset cache in every process.
+        mujoco.mj_setCacheCapacity(mujoco.mj_getCache(), 64 * 1024 * 1024)
         self.model = mujoco.MjModel.from_xml_path(path or os.environ.get('OPENARM_SCENE', os.environ['OPENARM_MODEL']))
         self.model.opt.timestep = 0.002
         self.model.opt.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST

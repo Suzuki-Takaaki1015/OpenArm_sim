@@ -12,12 +12,12 @@ from rcl_interfaces.srv import SetParametersAtomically
 from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
 from scene_objects import OBJECTS
 from environment_assets import ITEMS
-def call(node, kind, name, request):
+def call(node, kind, name, request, timeout=60):
     client=node.create_client(kind,name)
     try:
-        if not client.wait_for_service(timeout_sec=60):raise RuntimeError(f'Service unavailable: {name}')
+        if not client.wait_for_service(timeout_sec=timeout):raise RuntimeError(f'Service unavailable: {name}')
         future=client.call_async(request)
-        rclpy.spin_until_future_complete(node,future,timeout_sec=60)
+        rclpy.spin_until_future_complete(node,future,timeout_sec=timeout)
         if not future.done():raise RuntimeError(f'Service timed out: {name}; check scene state before moving robot')
         return future.result()
     finally:node.destroy_client(client)
@@ -41,15 +41,22 @@ def apply(node, enabled):
     if not call(node,ApplyPlanningScene,'/apply_planning_scene',request).success:
         raise RuntimeError('MoveIt rejected planning scene')
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);p.add_argument('--support',default='worktable');args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off','lidar-on','lidar-off']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);p.add_argument('--support',default='worktable');args=p.parse_args()
     if args.mode.endswith('-place') and (args.x is None or args.y is None or not all(math.isfinite(v) for v in [args.x,args.y,args.yaw])):p.error('Specify finite --x and --y (metres), and --yaw (degrees)')
     rclpy.init();node=Node('openarm_scene_cli')
     try:
+        if args.mode.startswith('lidar-'):
+            req=SetBool.Request();req.data=args.mode=='lidar-on'
+            result=call(node,SetBool,'/openarm/lidar/set_enabled',req)
+            if not result.success:raise RuntimeError(result.message)
+            print(result.message);return
         ids={o['id'] for o in OBJECTS};before=present(node)
         if args.mode=='status':
             scene=call(node,Trigger,'/openarm/scene/status',Trigger.Request())
             camera=call(node,Trigger,'/openarm/camera/status',Trigger.Request())
-            print(json.dumps({'scene':json.loads(scene.message),'camera':json.loads(camera.message)}));return
+            try:lidar=json.loads(call(node,Trigger,'/openarm/lidar/status',Trigger.Request(),timeout=2).message)
+            except Exception as exc:lidar={'enabled':False,'error':str(exc)}
+            print(json.dumps({'lidar':lidar,'scene':json.loads(scene.message),'camera':json.loads(camera.message)}));return
         if args.mode.startswith('camera-'):
             req=SetBool.Request();req.data=args.mode=='camera-on'
             result=call(node,SetBool,'/openarm/camera/set_enabled',req)

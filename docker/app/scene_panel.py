@@ -15,7 +15,7 @@ class ScenePanel:
         frame.bind('<Configure>',lambda event:canvas.configure(scrollregion=canvas.bbox('all')))
         canvas.bind('<Configure>',lambda event:canvas.itemconfigure(window,width=event.width))
         header=ttk.Frame(frame);header.pack(fill='x')
-        ttk.Label(header,text='シーンとD435カメラ',font=('Noto Sans CJK JP',17,'bold')).pack(side='left')
+        ttk.Label(header,text='シーンとセンサー',font=('Noto Sans CJK JP',17,'bold')).pack(side='left')
         self.doctor_busy=False;self.doctor_results=queue.Queue()
         self.doctor_button=ttk.Button(header,text='環境診断（読み取り専用）',command=self.doctor)
         self.doctor_button.pack(side='right')
@@ -43,6 +43,8 @@ class ScenePanel:
         ttk.Label(manual,text='Xは前方、Yは左方向。高さは机上へ自動調整。衝突・机外への配置は拒否します。',wraplength=620).pack(anchor='w')
         self.group(frame,'カメラ配信：胸部D435＋Ver2左右手内RGB',[('配信開始','camera-on'),('配信停止','camera-off')])
         ttk.Label(frame,text='カメラは初期OFF・2 fps。公式マウント／M6固定高さ740 mm（本環境の基準）。',wraplength=570).pack(anchor='w',pady=(4,8))
+        self.group(frame,'MID-360S 点群',[('配信開始','lidar-on'),('配信停止','lidar-off')])
+        ttk.Label(frame,text='初期OFF・最大5 fps。実機走査の近似。RVizのMID-360S PointCloudで表示。',wraplength=620).pack(anchor='w')
         presets=ttk.LabelFrame(frame,text='名前付きシーン保存・復元',padding=8);presets.pack(fill='x',pady=(4,0))
         self.preset_name=tk.StringVar(value='')
         self.preset_choices=ttk.Combobox(presets,textvariable=self.preset_name,width=22,postcommand=self.refresh_presets)
@@ -236,9 +238,10 @@ class ScenePanel:
                 try:
                     d=json.loads(text);s=d['scene'];c=d['camera'];mark=lambda v:'ON' if v else 'OFF'
                     self.state.set(f'机 {mark(s["obstacles"])} ／ 直方体 {mark(s["objects"]["box"])} ／ ボトル {mark(s["objects"]["bottle"])} ／ カメラ {mark(c["enabled"])}')
+                    self.state.set(self.state.get()+f' ／ LiDAR {mark(d["lidar"]["enabled"])}')
                     if self.opl_panel is not None and self.opl_panel.root.winfo_exists():self.opl_panel.update(s['objects'])
                     if self.ycb_panel is not None and self.ycb_panel.root.winfo_exists():self.ycb_panel.update(s['objects'])
-                    self.detail.set(c.get('error','') or f'シミュレーション速度: {s.get("performance",{}).get("real_time_factor",0):.2f} 倍（1.00が実時間）')
+                    self.detail.set(d['lidar'].get('error','') or c.get('error','') or f'シミュレーション速度: {s.get("performance",{}).get("real_time_factor",0):.2f} 倍（1.00が実時間）')
                 except Exception:self.state.set('状態取得に失敗');self.detail.set(text[-300:])
             else:
                 self.state.set('操作完了');self.detail.set(text)

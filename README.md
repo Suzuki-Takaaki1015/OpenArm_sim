@@ -1376,3 +1376,52 @@ CameraInfoは理想ピンホールモデルで、実機の校正値ではあり�
 APTの署名・パッケージハッシュ検証は維持しています。まず公式へ接続し、取得失敗・6分のダウンロード制限超過時は清華大学ミラーへ切り替えて再試行します。ダウンロード済みパッケージはビルドキャッシュに保持します。展開・設定処理には時間制限をかけません。
 `Unable to connect` はパッケージ配布先への通信失敗です。`lookup auth.docker.io ... server misbehaving` はDocker HubへのDNS解決失敗で、別の段階です。
 既存の対応イメージがある場合だけ `bash start.sh --offline` でビルドなしの起動ができます。
+
+
+## MID-360S 3D LiDAR
+
+OpenArm 1.0／2.0のチェスト下に、斜め下向きの固定マウントを追加しています。
+起動後、シーンGUIの **MID-360S 点群 → 配信開始** を押すと、RVizの **MID-360S PointCloud** に点群が表示されます。
+初期状態は配信OFF、最大5 fps・800レイ/フレームです。既存のカメラも併用できます。
+
+| トピック・サービス | 型 | 内容 |
+|---|---|---|
+| `/lidar/points` | `sensor_msgs/msg/PointCloud2` | `mid360s_link`基準のXYZ点群、メートル単位 |
+| `/openarm/lidar/set_enabled` | `std_srvs/srv/SetBool` | 点群配信の開始・停止 |
+| `/openarm/lidar/status` | `std_srvs/srv/Trigger` | 配信状態・エラー・点数・計算時間をJSONで取得 |
+
+```bash
+oa-ros service call /openarm/lidar/set_enabled std_srvs/srv/SetBool '{data: true}'
+```
+
+```bash
+oa-ros service call /openarm/lidar/status std_srvs/srv/Trigger '{}'
+```
+
+```bash
+oa-ros service call /openarm/lidar/set_enabled std_srvs/srv/SetBool '{data: false}'
+```
+
+公式CADの外形と測距原点、水平360°・垂直−7°〜＋52°の視野を使用しています。
+走査パターンは近似で、反射率・透明体・マルチパス・実機IMUは再現していません。
+LiDARの追加だけでは把持方向は変わりません。横からの把持候補生成や点群からの障害物認識は別機能です。
+
+取り付け寸法、負荷調整、再現範囲は [LIDAR.md](LIDAR.md) を参照してください。
+
+### 8GB VMでのセンサー動作
+
+カメラは描画コンテキストを共有し、LiDARは画像テクスチャを読み込みません。両センサーは表示中の物体の形状だけを読み込み、非表示のYCB物体は必要になるまで読み込みません。物体の表示・非表示を切り替えた直後はセンサー用モデルを再構築するため、画像・点群の配信が一時的に止まることがあります。物理シミュレーションと腕の制御モデルは変更しません。
+
+センサーをGUIで停止すると、センサー用モデルと描画用メモリも解放します。多数の複雑な物体を同時表示した場合のメモリ使用量は増えるため、8GBで任意の物体数を扱える保証はありません。
+
+既定ではRVizとMuJoCoの両方のウィンドウを表示します。明示的に両方を表示する場合も次を使用できます。
+
+```bash
+bash start.sh --mujoco-viewer on
+```
+
+メモリ容量に関係なく別ウィンドウを省く場合：
+
+```bash
+bash start.sh --mujoco-viewer off
+```

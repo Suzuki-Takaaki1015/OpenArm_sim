@@ -18,21 +18,22 @@ def params():
     return {'robot_description':(CONFIG/'openarm.urdf').read_text(), 'robot_description_semantic':(CONFIG/'openarm.srdf').read_text(), 'robot_description_kinematics':load('kinematics.yaml'),'robot_description_planning':load('joint_limits.yaml'),'planning_pipelines':['ompl'],'default_planning_pipeline':'ompl','ompl':load('ompl.yaml'),'moveit_controller_manager':'moveit_simple_controller_manager/MoveItSimpleControllerManager','moveit_simple_controller_manager':load('moveit_controllers.yaml'),'trajectory_execution.allowed_execution_duration_scaling':2.0,'trajectory_execution.allowed_goal_duration_margin':10.0,'trajectory_execution.allowed_start_tolerance':0.05,'publish_robot_description':True,'publish_robot_description_semantic':True,'publish_planning_scene':True,'publish_geometry_updates':True,'publish_state_updates':True,'publish_transforms_updates':True,'use_sim_time':True,'octomap_resolution':0.1,'sensors':['simulation_ground_truth'],'simulation_ground_truth.sensor_plugin':'~disabled'}
 
 def generate_launch_description():
-    gui=LaunchConfiguration('gui');config=params()
+    gui=LaunchConfiguration('gui');viewer=LaunchConfiguration('mujoco_gui');config=params()
     # MuJoCo is the sole simulation clock source. Both modes use identical physics.
-    sim=ExecuteProcess(cmd=['python','/opt/openarm/app/bridge.py'],additional_env={'OPENARM_GUI':gui},output='screen')
+    sim=ExecuteProcess(cmd=['python','/opt/openarm/app/bridge.py'],additional_env={'OPENARM_GUI':viewer},output='screen')
     cm=Node(package='controller_manager',executable='ros2_control_node',parameters=[{'robot_description':config['robot_description']},str(CONFIG/'controllers.yaml')],output='screen')
     rsp=Node(package='robot_state_publisher',executable='robot_state_publisher',parameters=[{'robot_description':config['robot_description'],'use_sim_time':True}],output='screen')
     move=Node(package='moveit_ros_move_group',executable='move_group',parameters=[config],output='screen')
     spawn=Node(package='controller_manager',executable='spawner',arguments=['joint_state_broadcaster','left_arm_controller','right_arm_controller','left_gripper_controller','right_gripper_controller','--controller-manager-timeout','120','--switch-timeout','120','--activate-as-group'],output='screen')
     rviz=Node(package='rviz2',executable='rviz2',arguments=['-d','/opt/openarm/app/openarm.rviz'],parameters=[config],condition=IfCondition(gui),output='screen')
     camera=ExecuteProcess(cmd=['python','/opt/openarm/app/camera_node.py'],output='screen')
+    lidar=ExecuteProcess(cmd=['python','/opt/openarm/app/lidar_node.py'],output='screen')
     objects=ExecuteProcess(cmd=['python','/opt/openarm/app/object_scene_sync.py'],output='screen')
     panel=ExecuteProcess(cmd=['python','/opt/openarm/app/scene_panel.py'],condition=IfCondition(gui),output='screen')
     ready=ExecuteProcess(cmd=['python','/opt/openarm/app/wait_ready.py'],output='screen')
     def after_ready(event, context):
         return [spawn] if event.returncode == 0 else [EmitEvent(event=Shutdown(reason='MuJoCo startup failed'))]
-    actions=[DeclareLaunchArgument('gui',default_value='false'),sim,rsp,cm,move,rviz,camera,objects,ready,RegisterEventHandler(OnProcessExit(target_action=ready,on_exit=after_ready))]
+    actions=[DeclareLaunchArgument('gui',default_value='false'),DeclareLaunchArgument('mujoco_gui',default_value=os.environ.get('OPENARM_MUJOCO_GUI',gui)),sim,rsp,cm,move,rviz,camera,lidar,objects,ready,RegisterEventHandler(OnProcessExit(target_action=ready,on_exit=after_ready))]
     for critical in [sim,cm,move,objects]:
         actions.append(RegisterEventHandler(OnProcessExit(target_action=critical,on_exit=[EmitEvent(event=Shutdown(reason='Required node exited'))])))
     return LaunchDescription(actions)

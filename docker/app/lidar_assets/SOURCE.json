@@ -1,0 +1,32 @@
+{
+  "model": "Livox MID-360S",
+  "source_file": "mid-360S.stp",
+  "sha256": "62eda1dd93160b57269e25162e4119922ac6efe941b27b2f2d727705ac3fe363",
+  "source_url": "https://www.livoxtech.com/mid-360s/downloads",
+  "cad_to_sensor_rotation": [
+    [
+      -1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      0
+    ]
+  ],
+  "cad_bottom_mm": [
+    0,
+    -25.9171,
+    0
+  ],
+  "units": "metres",
+  "optical_origin_above_bottom_m": 0.047,
+  "visual_triangles": 15182,
+  "note": "User-provided official STEP; simplified visual; conservative collision envelope; project bracket is not an official Livox/OpenArm mount."
+}

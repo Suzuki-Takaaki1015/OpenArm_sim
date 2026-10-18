@@ -38,6 +38,20 @@ Visualization Manager:
         Durability Policy: Transient Local
         History Policy: Keep Last
         Depth: 1
+    - Class: rviz_default_plugins/PointCloud2
+      Name: MID-360S PointCloud
+      Enabled: true
+      Topic:
+        Value: /lidar/points
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 1
+      Size (m): 0.008
+      Style: Points
+      Color Transformer: AxisColor
+      Axis: Z
+      Decay Time: 0
   Tools:
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Interact

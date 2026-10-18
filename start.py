@@ -229,6 +229,7 @@ def main():
     modes.add_argument('--cpu',action='store_true');modes.add_argument('--gpu',action='store_true')
     p.add_argument('--rebuild',action='store_true');p.add_argument('--check',action='store_true',help='check/build/probe without starting')
     p.add_argument('--stop',action='store_true');p.add_argument('--logs',action='store_true')
+    p.add_argument('--mujoco-viewer', choices=['on','off'], default='on', help='show both windows by default; off disables only the MuJoCo viewer')
     p.add_argument('--headless', action='store_true', help='ROS and MuJoCo physics without any GUI')
     p.add_argument('--display', choices=['auto','native','browser'], default='auto', help='auto: desktop windows when available; otherwise browser')
     p.add_argument('--robot-version',choices=['1','2'],help='OpenArm model; prompted on interactive startup')
@@ -249,6 +250,7 @@ def main():
     status('OK', f'Docker: {info.get("ServerVersion")} / {info.get("Architecture")} / {info.get("NCPU")} CPUs')
     gib=info.get('MemTotal',0)/(1024**3)
     status('OK' if gib>=7 else 'WARN',f'Docker memory: {gib:.1f} GiB; recommended 8 GiB')
+    viewer_enabled=not args.headless and args.mujoco_viewer=='on'
     if args.stop:
         if existing(): docker('stop',NAME)
         status('OK','Stopped'); return
@@ -271,13 +273,14 @@ def main():
     mode, opts, reason=select_presentation(args,system,endpoint)
     status('OK',f'Display: {"none" if mode == "headless" else "browser" if mode == "cpu" else "host desktop"}; rendering: {"GPU" if mode == "gpu" else "CPU"} - {reason}')
     status('OK','Physics: MuJoCo CPU; GPU selection accelerates rendering only')
+    status('OK', 'MuJoCo viewer: on' if viewer_enabled else 'MuJoCo viewer: off (physics stays active); use --mujoco-viewer on to enable')
     (STATE/'environment.json').write_text(json.dumps({'robot_version':args.robot_version,'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
     if args.check: return
     old=existing()
     if old:
         docker('stop',NAME);docker('rm',NAME)
     def launch(selected, device_options):
-        options=['run','-d','-e',f'OPENARM_VERSION={args.robot_version}','-e',f'LP_NUM_THREADS={min(8, os.cpu_count() or 2)}','-e','OPENARM_VIEWER_FPS=30','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
+        options=['run','-d','-e',f'OPENARM_MUJOCO_GUI={str(viewer_enabled).lower()}','-e',f'OPENARM_VERSION={args.robot_version}','-e',f'LP_NUM_THREADS={min(8, os.cpu_count() or 2)}','-e','OPENARM_VIEWER_FPS=30','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
         dev = STATE / 'dev_ws'
         (dev / 'src').mkdir(parents=True, exist_ok=True)
         (dev / '.home').mkdir(exist_ok=True)
@@ -301,7 +304,7 @@ def main():
         docker('rm','-f',NAME)
         mode='cpu'; reason='Native display startup failed; see .openarm/gpu-startup.log'; launch(mode,[])
     (STATE/'environment.json').write_text(json.dumps({'robot_version':args.robot_version,'host':system,'docker':info.get('ServerVersion'),'mode':mode,'reason':reason},indent=2),encoding='utf-8')
-    status('OK', 'Headless simulation ready; use oa or oa-ros' if mode=='headless' else 'Native RViz + MuJoCo windows opened' if mode!='cpu' else f'Open http://localhost:{args.port}/vnc.html?autoconnect=true&resize=scale')
+    status('OK', 'Headless simulation ready; use oa or oa-ros' if mode=='headless' else ('Native RViz + MuJoCo windows opened' if viewer_enabled else 'Native RViz opened; MuJoCo physics runs without a viewer') if mode!='cpu' else f'Open http://localhost:{args.port}/vnc.html?autoconnect=true&resize=scale')
     print('Stop: bash start.sh --stop\nLogs: bash start.sh --logs',flush=True)
 
 if __name__=='__main__':

@@ -38,7 +38,11 @@ class Camera(Node):
     def status(self,req,res):
         res.success=True;res.message=json.dumps({'enabled':self.enabled,'error':self.error,'mount_calibrated':self.cfg['calibration_verified'],'wrist_cameras':list(self.wrists)});return res
     def toggle(self,req,res):
-        self.enabled=req.data;self.error='';res.success=True;res.message='camera on' if req.data else 'camera off';return res
+        self.enabled=req.data;self.error=''
+        if not self.enabled:
+            self.close();self.renderers={};self.renderer=None;self.data=None;self.model=None
+        self.last_stamp=-1
+        res.success=True;res.message='camera on' if req.data else 'camera off';return res
     def transforms(self):
         out=[];cfg=self.cfg
         t=TransformStamped();t.header.frame_id=cfg['parent_frame'];t.child_frame_id='camera_link'
@@ -52,11 +56,13 @@ class Camera(Node):
         self.base_transforms=out;self.tf.sendTransform(out)
     def initialize(self):
         import mujoco
-        self.mj=mujoco;self.model=mujoco.MjModel.from_xml_path(os.environ['OPENARM_SCENE']);self.data=mujoco.MjData(self.model)
+        from sensor_model import load_sensor_model
+        self.mj=mujoco;self.model,self.active=load_sensor_model(self.latest);self.data=mujoco.MjData(self.model)
         self.model.vis.global_.offwidth=max(self.cfg[k]['width'] for k in ('color','depth'))
         self.model.vis.global_.offheight=max(self.cfg[k]['height'] for k in ('color','depth'))
-        for stream in ('color','depth'):
-            c=self.cfg[stream];self.renderers[stream]=mujoco.Renderer(self.model,height=c['height'],width=c['width'])
+        from shared_renderer import SharedRenderer
+        self.renderer=SharedRenderer(self.model,height=self.model.vis.global_.offheight,width=self.model.vis.global_.offwidth)
+        self.renderers['shared']=self.renderer
         if os.environ.get('OPENARM_VERSION')=='2':
             transforms=[]
             for side in ('left','right'):
@@ -66,7 +72,7 @@ class Camera(Node):
                 stream=f'wrist_{side}'
                 # Keep official aspect ratio and field of view; reduce resolution for VM use.
                 self.wrists[stream]={'width':320,'height':200,'vertical_fov_deg':float(self.model.cam_fovy[cid]),'camera':name}
-                self.renderers[stream]=mujoco.Renderer(self.model,height=200,width=320)
+
                 transform=TransformStamped()
                 transform.header.frame_id=mujoco.mj_id2name(self.model,mujoco.mjtObj.mjOBJ_BODY,int(self.model.cam_bodyid[cid]))
                 transform.child_frame_id=f'camera_{side}_wrist_optical_frame'
@@ -94,7 +100,10 @@ class Camera(Node):
         if not self.enabled or not self.latest or self.latest['time']==self.last_stamp:return
         snapshot=self.latest
         try:
-            if self.model is None:self.initialize()
+            from sensor_model import active_objects
+            if self.model is None or self.active!=active_objects(snapshot):
+                self.close();self.renderers={};self.renderer=None;self.data=None;self.model=None
+                self.initialize()
             m,d=self.model,self.data;d.qpos[:]=snapshot['qpos'];d.time=snapshot['time']
             if m.nmocap:
                 d.mocap_pos[:]=snapshot['mocap_pos'];d.mocap_quat[:]=snapshot['mocap_quat']
@@ -102,13 +111,14 @@ class Camera(Node):
                 g=self.mj.mj_name2id(m,self.mj.mjtObj.mjOBJ_GEOM,obj['id']);m.geom_rgba[g]=obj['rgba'] if snapshot['obstacles'] else [0,0,0,0]
             for key,obj in ITEMS.items():
                 for i,geom in enumerate(obj['geoms']):
-                    g=self.mj.mj_name2id(m,self.mj.mjtObj.mjOBJ_GEOM,f'{obj["id"]}_{i}');set_visibility(m,g,geom,snapshot['objects'][key]['enabled'])
+                    g=self.mj.mj_name2id(m,self.mj.mjtObj.mjOBJ_GEOM,f'{obj["id"]}_{i}')
+                    if g>=0:set_visibility(m,g,geom,snapshot['objects'][key]['enabled'])
             self.mj.mj_forward(m,d)
-            color=self.renderers['color'];color.disable_depth_rendering();color.update_scene(d,camera='d435_color');self.publish('color',color.render().copy(),snapshot)
+            color=self.renderer.resize_viewport(self.cfg['color']['width'],self.cfg['color']['height']);color.disable_depth_rendering();color.update_scene(d,camera='d435_color');self.publish('color',color.render().copy(),snapshot)
             color.enable_depth_rendering();self.publish('aligned_depth_to_color',color.render().copy(),snapshot)
-            depth=self.renderers['depth'];depth.enable_depth_rendering();depth.update_scene(d,camera='d435_depth');self.publish('depth',depth.render().copy(),snapshot)
+            depth=self.renderer.resize_viewport(self.cfg['depth']['width'],self.cfg['depth']['height']);depth.enable_depth_rendering();depth.update_scene(d,camera='d435_depth');self.publish('depth',depth.render().copy(),snapshot)
             for stream,c in self.wrists.items():
-                renderer=self.renderers[stream];renderer.update_scene(d,camera=c['camera']);self.publish(stream,renderer.render().copy(),snapshot)
+                renderer=self.renderer.resize_viewport(c['width'],c['height']);renderer.disable_depth_rendering();renderer.update_scene(d,camera=c['camera']);self.publish(stream,renderer.render().copy(),snapshot)
             self.last_stamp=snapshot['time']
         except Exception as exc:
             self.error=str(exc);self.enabled=False;self.get_logger().error('Camera disabled: '+self.error)

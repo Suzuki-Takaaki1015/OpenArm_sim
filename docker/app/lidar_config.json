@@ -1,0 +1,20 @@
+{
+  "model": "MID-360S",
+  "mount_position_m": [
+    0.065,
+    0,
+    0.42
+  ],
+  "mount_pitch_deg": 55,
+  "optical_offset_m": [
+    0,
+    0,
+    0.047
+  ],
+  "fps": 5.0,
+  "rays_per_frame": 800,
+  "min_range_m": 0.1,
+  "max_range_m": 40.0,
+  "vertical_min_deg": -7.0,
+  "vertical_max_deg": 52.0
+}

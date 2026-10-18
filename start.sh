@@ -50,12 +50,25 @@ for pkg in python3 python3-venv git ca-certificates; do
     installed "$pkg" || packages+=("$pkg")
 done
 if ! command -v docker >/dev/null; then
-    packages+=(docker.io docker-compose-v2)
+    packages+=(docker.io docker-compose-v2 docker-buildx)
 elif ! docker compose version >/dev/null 2>&1; then
     if installed docker-ce-cli; then packages+=(docker-compose-plugin)
     elif installed docker.io; then packages+=(docker-compose-v2)
     else fail 'Existing Docker has no Compose v2. Install its matching Compose plugin; this script will not replace a custom Docker installation.'
     fi
+fi
+# BuildKit is required by Dockerfile cache mounts; offline cached-image use does not need it.
+if command -v docker >/dev/null && ! docker buildx version >/dev/null 2>&1; then
+    case "${1:-}" in
+        --stop|--logs) ;;
+        *)
+            if [[ ${OPENARM_OFFLINE:-0} == 1 ]]; then
+                say WARN 'Docker Buildx unavailable; offline use is limited to existing images.'
+            elif installed docker-ce-cli; then packages+=(docker-buildx-plugin)
+            elif installed docker.io; then packages+=(docker-buildx)
+            else fail 'Docker Buildx is missing. Install the plugin matching your custom Docker installation.'
+            fi ;;
+    esac
 fi
 if ((${#packages[@]})); then
     [[ ${OPENARM_OFFLINE:-0} != 1 ]] || fail "Offline and required host packages are missing: ${packages[*]}. Connect to the internet and rerun. Simulation was not started."
