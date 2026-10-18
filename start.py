@@ -280,7 +280,7 @@ def main():
     if old:
         docker('stop',NAME);docker('rm',NAME)
     def launch(selected, device_options):
-        options=['run','-d','-e',f'OPENARM_MUJOCO_GUI={str(viewer_enabled).lower()}','-e',f'OPENARM_VERSION={args.robot_version}','-e',f'LP_NUM_THREADS={min(8, os.cpu_count() or 2)}','-e','OPENARM_VIEWER_FPS=30','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
+        options=['run','-d','-e',f'OPENARM_MUJOCO_GUI={str(viewer_enabled).lower()}','-e',f'OPENARM_VERSION={args.robot_version}','-e',f'LP_NUM_THREADS={max(1, int(info.get("NCPU") or os.cpu_count() or 1))}','-e','OPENARM_VIEWER_FPS=30','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
         dev = STATE / 'dev_ws'
         (dev / 'src').mkdir(parents=True, exist_ok=True)
         (dev / '.home').mkdir(exist_ok=True)

@@ -36,8 +36,10 @@ To change mounting settings edit `docker/app/lidar_config.json` and rebuild. If 
 
 ## Performance and limitations
 
-- Default: at most 5 clouds/s, 800 attempted rays/cloud (4000 rays/s); actual rate also depends on simulation snapshots and CPU. This is deliberately below device throughput for VMware.
-- ROS parameters `fps` (0 < fps <= 20) and `rays_per_frame` (32..20000) are startup settings for lidar_node.py. Snapshot feed is currently 5 Hz in simulation time; raising fps alone cannot create newer states.
+- Default: **dense**, at most 5 clouds/s, 40000 attempted rays/cloud (200000 rays/s). The scene GUI offers **light** (800 rays/cloud), **standard** (8000), and **dense** (40000); density can change during streaming without restarting physics. Restarting the node restores the configured default.
+- The [official MID-360S specification](https://www.livoxtech.com/mid-360s) is 200000 points/s. Dense mode attempts 200000 rays/s at 5 Hz; this is a computation budget, not a promise of device-equivalent output. Rays missing geometry or outside the range gate are omitted. CPU cost can reduce the actual rate. `/openarm/lidar/status` reports returned `points`, measured wall-clock `cloud_hz` (last interval), and `scan_ms`; the GUI shows points and Hz. This geometric raycast runs on CPU, not CUDA.
+- RViz displays the latest cloud (Decay Time 0). No artificial point duplication or accumulated stale geometry is used. Increasing decay time manually accumulates previous measurements, including old object poses.
+- ROS parameters `fps` (0 < fps <= 20) and `rays_per_frame` (integer 32..40000) configure lidar_node.py. `fps` is startup-only; `rays_per_frame` can be changed live with the GUI or ROS parameter service `/openarm_mid360s_sim/set_parameters_atomically`. Snapshot feed is currently 5 Hz in simulation time; raising fps alone cannot create newer states.
 - 360-degree azimuth, -7..+52 degree elevation, 0.1..40 m range gate. 40 m is a conservative simplified cap, not the actual direction/material-dependent range envelope.
 - Changing low-discrepancy ray directions approximate non-repetitive coverage. They do not reproduce Livox's proprietary optical trajectory, exact density, or per-point acquisition timing. Each cloud is an instantaneous simulation snapshot.
 - Only XYZ is published. No fabricated measured reflectivity, confidence tags, hardware timestamps, or IMU stream. Transparent objects are treated as opaque geometric surfaces; material-dependent noise and multipath are not simulated.
@@ -46,7 +48,7 @@ To change mounting settings edit `docker/app/lidar_config.json` and rebuild. If 
 
 ## CAD provenance
 
-User supplied `mid-360S.stp` from Livox downloads; conversion metadata and SHA-256 are in `docker/app/lidar_assets/SOURCE.json`. Source CAD uses +Y up and connector toward +X; runtime uses +Z up and connector toward -X according to the manual. Visual mesh was tessellated and simplified. Conservative collision envelope and bracket are generated geometry. Original STEP/PDFs are not copied into the repository.
+User supplied `mid-360S.stp` from Livox downloads; conversion metadata and SHA-256 are in `docker/app/lidar_assets/SOURCE.json`. Source CAD uses +Y up and connector toward +X; runtime uses +Z up and connector toward -X according to the manual. Visual mesh retains all 111613 triangles of the original CAD tessellation. Quadric decimation was removed because it visibly damaged the dome and cooling fins. Mount coordinates and conservative collision geometry are unchanged. Conservative collision envelope and bracket are generated geometry. Original STEP/PDFs are not copied into the repository.
 
 References: Livox Mid-360S User Manual (2026), pages 11, 15-16, 19, 22; https://www.livoxtech.com/mid-360s/downloads . Manual specifies bottom mounting, four M3 holes depth 5 mm, airflow gap >=10 mm, and a thermally conductive mounting plate. Simulated bracket is not a manufacturing drawing or thermal validation.
 
@@ -69,3 +71,5 @@ physics/control model is unchanged. Disabling a sensor releases its model and
 rendering resources. LiDAR uses flat placeholder textures because RGB pixels do
 not affect ideal geometric ray intersections. This is not a guarantee of an
 unlimited number of visible YCB objects on an 8GB host.
+
+The launcher applies no Docker CPU or RAM quota and no RAM-based density reduction. Software rendering can use all CPUs reported by Docker instead of a fixed eight-thread cap. GPU rendering is selected when available. Retaining one shared camera context and excluding invisible sensor geometry are efficiency improvements, not reduced sensor resolution. Both RViz and MuJoCo windows remain enabled by default.

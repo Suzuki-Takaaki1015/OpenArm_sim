@@ -44,7 +44,8 @@ class ScenePanel:
         self.group(frame,'カメラ配信：胸部D435＋Ver2左右手内RGB',[('配信開始','camera-on'),('配信停止','camera-off')])
         ttk.Label(frame,text='カメラは初期OFF・2 fps。公式マウント／M6固定高さ740 mm（本環境の基準）。',wraplength=570).pack(anchor='w',pady=(4,8))
         self.group(frame,'MID-360S 点群',[('配信開始','lidar-on'),('配信停止','lidar-off')])
-        ttk.Label(frame,text='初期OFF・最大5 fps。実機走査の近似。RVizのMID-360S PointCloudで表示。',wraplength=620).pack(anchor='w')
+        self.group(frame,'点群密度（配信中も変更可能）',[('軽量 800本/回','lidar-light'),('標準 8,000本/回','lidar-standard'),('高密度 40,000本/回','lidar-dense')])
+        ttk.Label(frame,text='初期OFF・高密度・最大5 fps。高密度は最大20万本/秒を試行。実際の点数・速度はCPUとシーンに依存します。',wraplength=620).pack(anchor='w')
         presets=ttk.LabelFrame(frame,text='名前付きシーン保存・復元',padding=8);presets.pack(fill='x',pady=(4,0))
         self.preset_name=tk.StringVar(value='')
         self.preset_choices=ttk.Combobox(presets,textvariable=self.preset_name,width=22,postcommand=self.refresh_presets)
@@ -238,10 +239,12 @@ class ScenePanel:
                 try:
                     d=json.loads(text);s=d['scene'];c=d['camera'];mark=lambda v:'ON' if v else 'OFF'
                     self.state.set(f'机 {mark(s["obstacles"])} ／ 直方体 {mark(s["objects"]["box"])} ／ ボトル {mark(s["objects"]["bottle"])} ／ カメラ {mark(c["enabled"])}')
-                    self.state.set(self.state.get()+f' ／ LiDAR {mark(d["lidar"]["enabled"])}')
+                    self.state.set(self.state.get()+f' ／ LiDAR {mark(d["lidar"]["enabled"])} ({d["lidar"].get("rays_per_frame",0):,}本/回)')
                     if self.opl_panel is not None and self.opl_panel.root.winfo_exists():self.opl_panel.update(s['objects'])
                     if self.ycb_panel is not None and self.ycb_panel.root.winfo_exists():self.ycb_panel.update(s['objects'])
                     self.detail.set(d['lidar'].get('error','') or c.get('error','') or f'シミュレーション速度: {s.get("performance",{}).get("real_time_factor",0):.2f} 倍（1.00が実時間）')
+                    if d['lidar'].get('enabled') and not d['lidar'].get('error'):
+                        self.detail.set(self.detail.get()+f' ／ LiDAR {d["lidar"].get("points",0):,}点/回・{d["lidar"].get("cloud_hz",0):.1f} Hz')
                 except Exception:self.state.set('状態取得に失敗');self.detail.set(text[-300:])
             else:
                 self.state.set('操作完了');self.detail.set(text)

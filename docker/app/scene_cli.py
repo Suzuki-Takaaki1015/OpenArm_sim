@@ -41,10 +41,17 @@ def apply(node, enabled):
     if not call(node,ApplyPlanningScene,'/apply_planning_scene',request).success:
         raise RuntimeError('MoveIt rejected planning scene')
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off','lidar-on','lidar-off']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);p.add_argument('--support',default='worktable');args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off','lidar-on','lidar-off','lidar-light','lidar-standard','lidar-dense']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);p.add_argument('--support',default='worktable');args=p.parse_args()
     if args.mode.endswith('-place') and (args.x is None or args.y is None or not all(math.isfinite(v) for v in [args.x,args.y,args.yaw])):p.error('Specify finite --x and --y (metres), and --yaw (degrees)')
     rclpy.init();node=Node('openarm_scene_cli')
     try:
+        if args.mode in ('lidar-light','lidar-standard','lidar-dense'):
+            count={'lidar-light':800,'lidar-standard':8000,'lidar-dense':40000}[args.mode]
+            req=SetParametersAtomically.Request()
+            req.parameters=[Parameter(name='rays_per_frame',value=ParameterValue(type=ParameterType.PARAMETER_INTEGER,integer_value=count))]
+            result=call(node,SetParametersAtomically,'/openarm_mid360s_sim/set_parameters_atomically',req).result
+            if not result.successful:raise RuntimeError(result.reason)
+            print(f'LiDAR: {count:,} rays/cloud. Actual cloud rate depends on CPU and simulation speed.');return
         if args.mode.startswith('lidar-'):
             req=SetBool.Request();req.data=args.mode=='lidar-on'
             result=call(node,SetBool,'/openarm/lidar/set_enabled',req)
