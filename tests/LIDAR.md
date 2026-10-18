@@ -29,3 +29,33 @@ Run the density test only in a disposable simulation; it changes table and LiDAR
 ```bash
 python /workspaces/OpenArm_sim/tests/lidar_density_check.py
 ```
+
+
+## Vendor-reference scan correction
+
+The generator now replays the official Livox-SDK MID-360 direction sequence, FOV-adapted to MID-360S. The reference is **not a measured MID-360S trajectory**. No points were interpolated into empty areas, no random directions were added, and RViz decay stays zero.
+
+Both actual OpenArm 1.0 and 2.0 models were compiled and raycast in their initial pose with a visible 0.5 x 0.7 m worktable. Both had the same table/probe results in this setup (the robot meshes did not occlude these test placements). Each row below summarizes 20 consecutive 0.2-second windows at 40000 attempted rays/window. Small-object tests use opaque 10/20/40 mm cubes at 25 positions (x=0.30..0.66 m, y=-0.25..0.25 m). Every top-center line of sight was independently checked; all placements were visible.
+
+| Measurement, both robot versions | Previous generator | Vendor-reference approximation |
+|---|---:|---:|
+| Mean worktable 1 cm bin coverage, 0.2 s | 44.29% | 69.84% |
+| Minimum worktable coverage, 0.2 s | 43.71% | 65.63% |
+| Mean worktable coverage, 1 s | 99.37% | 96.97% |
+| 10 mm cubes: zero-return cases, 0.2 s | 193/500 | 17/500 |
+| 20 mm cubes: zero-return cases, 0.2 s | 51/500 | 1/500 |
+| 40 mm cubes: zero-return cases, 0.2 s | 0/500 | 0/500 |
+| All cube sizes: zero-return cases, 1 s | 0/1500 | 0/1500 |
+
+The new reference improves short-window coverage and greatly reduces the observed small-cube misses. It does **not** improve every metric: the previous synthetic generator covered slightly more table bins after 1 second. We preserve the vendor trajectory instead of modifying its distribution to force a perfect coverage score. A single short scan can still miss a small object. In these static tests, every cube had at least six returns over one second with the new reference; this is not a general detection guarantee.
+
+The one-second results combine five consecutive source windows in a **static test**. They are not stale-point accumulation in the ROS output and do not promise one wall-clock second of coverage on a slow machine that skips snapshots. Phase trials overlap and are not independent random trials. The opaque-wall test returned no points on any hidden probe. Exact machine-readable results: [OpenArm 1.0](lidar_pattern_v1.json), [OpenArm 2.0](lidar_pattern_v2.json).
+
+`lidar_pattern_check.py` verifies data hash, coordinate convention, FOV, sequence continuity and wrap, deterministic thinning and simulation-time phase. Hardware noise, reflectivity, beam divergence, actual MID-360S trajectory, motion distortion and grasp success remain unvalidated.
+
+Diagnostic plot (unoccluded plane at the same worktable height; separate from the full-robot tests):
+
+![Previous vs vendor-reference scan directions](lidar_pattern_comparison.png)
+
+
+Docker/ROS integration passed for both OpenArm versions after this scan change: bundled-asset loading, high-density default, 800/8000/40000 live profile changes, exact source-index correspondence to simulation time, invalid parameter rejection and stop/resume. Version 1 was tested headless; version 2 had both RViz and MuJoCo windows running. All five controllers became active. The 45 existing unit tests passed. The reference asset was regenerated from the pinned CSV and its SHA-256 matched the bundled file. Camera and robot-control code were not modified in this scan correction.

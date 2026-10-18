@@ -45,7 +45,7 @@ class ScenePanel:
         ttk.Label(frame,text='カメラは初期OFF・2 fps。公式マウント／M6固定高さ740 mm（本環境の基準）。',wraplength=570).pack(anchor='w',pady=(4,8))
         self.group(frame,'MID-360S 点群',[('配信開始','lidar-on'),('配信停止','lidar-off')])
         self.group(frame,'点群密度（配信中も変更可能）',[('軽量 800本/回','lidar-light'),('標準 8,000本/回','lidar-standard'),('高密度 40,000本/回','lidar-dense')])
-        ttk.Label(frame,text='初期OFF・高密度・最大5 fps。高密度は最大20万本/秒を試行。実際の点数・速度はCPUとシーンに依存します。',wraplength=620).pack(anchor='w')
+        ttk.Label(frame,text='初期OFF・高密度・最大5 fps。Livox公式MID-360走査列をMID-360S視野角へ補正した近似です。速度はCPUとシーンに依存します。',wraplength=620).pack(anchor='w')
         presets=ttk.LabelFrame(frame,text='名前付きシーン保存・復元',padding=8);presets.pack(fill='x',pady=(4,0))
         self.preset_name=tk.StringVar(value='')
         self.preset_choices=ttk.Combobox(presets,textvariable=self.preset_name,width=22,postcommand=self.refresh_presets)

@@ -32,7 +32,10 @@ def main():
             if clouds and clouds[-1].width:return clouds[-1].width
         raise AssertionError('No point cloud')
     try:
-        assert status()['rays_per_frame']==40000,'Default should be dense, not VM profile'
+        initial=status()
+        assert initial['rays_per_frame']==40000,'Default should be dense, not VM profile'
+        assert initial['scan_pattern']=='livox_mid360_reference_fov_adapted'
+        assert initial['reference_period_s']==4. and not initial['trajectory_calibrated']
         enabled('/openarm/set_obstacles',True)
         enabled('/openarm/lidar/set_enabled',True)
         wait_cloud();counts=[]
@@ -43,6 +46,7 @@ def main():
             while time.monotonic()<end:rclpy.spin_once(node,timeout_sec=.1)
             points=wait_cloud();s=status();assert s['enabled'] and not s['error'],s
             assert s['rays_per_frame']==count and 0<points<=count,s
+            assert s['sample_start_index']==round(s['last_sim_time']*200000)-40000,s
             counts.append(points);print('DENSITY',count,points,s,flush=True)
         assert counts[2]>counts[0]*30 and counts[1]>counts[0]*5,counts
         for bad in (0,40001):

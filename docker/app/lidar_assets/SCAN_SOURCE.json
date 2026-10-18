@@ -1,0 +1,27 @@
+{
+  "source_model": "MID-360",
+  "target_model": "MID-360S (approximation)",
+  "repository": "https://github.com/Livox-SDK/livox_laser_simulation",
+  "commit": "1cce1073633a062b92e30243a4c2920e45551bb5",
+  "path": "scan_mode/mid360.csv",
+  "source_sha256": "aa1fc08b6a4400608dbd6ee832b7ea3a9c3c37197e734f60f58fe5abf762269a",
+  "asset_sha256": "fd503d8a327429ada9751e7d81212009feb79998b879f28e52d7c748cbf59925",
+  "rows": 800000,
+  "stored_columns": [
+    "azimuth_deg",
+    "zenith_deg"
+  ],
+  "source_elevation_limits_deg": [
+    -7.212299999999999,
+    52.164
+  ],
+  "target_elevation_limits_deg": [
+    -7,
+    52
+  ],
+  "adaptation": "elevation=90-zenith, then affine FOV mapping; azimuth and source row order preserved. Float32 storage. No measured MID-360S trajectory available.",
+  "assumed_samples_per_second": 200000,
+  "replay_period_seconds": 4.0,
+  "time_column_note": "CSV Time/s contains ordinal indices 1..800000, not seconds; playback rate uses target product nominal point rate.",
+  "license": "MIT; see LIVOX_SCAN_LICENSE.txt"
+}
