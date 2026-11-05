@@ -184,3 +184,6 @@ scene.write(SRC.parent/'simulation_scene.xml', encoding='unicode')
 
 from environment_assets import add_assets
 add_assets(SRC.parent/"simulation_scene.xml")
+
+from lidar_variant import build as build_without_lidar
+build_without_lidar(SRC, OUT)

@@ -43,6 +43,12 @@ class ScenePanel:
         ttk.Label(manual,text='Xは前方、Yは左方向。高さは机上へ自動調整。衝突・机外への配置は拒否します。',wraplength=620).pack(anchor='w')
         self.group(frame,'カメラ配信：胸部D435＋Ver2左右手内RGB',[('配信開始','camera-on'),('配信停止','camera-off')])
         ttk.Label(frame,text='カメラは初期OFF・2 fps。公式マウント／M6固定高さ740 mm（本環境の基準）。',wraplength=570).pack(anchor='w',pady=(4,8))
+        mount=ttk.LabelFrame(frame,text='MID-360S 本体とブラケット',padding=8);mount.pack(fill='x',pady=(10,0))
+        self.mount_state=tk.StringVar(value='装着状態を確認中')
+        ttk.Label(mount,textvariable=self.mount_state).pack(side='left')
+        for label,cmd in [('取り外す','lidar-detach'),('取り付ける','lidar-attach')]:
+            b=ttk.Button(mount,text=label,command=lambda c=cmd:self.change_mount(c));b.pack(side='left',padx=5)
+            self.buttons.append(b)
         self.group(frame,'MID-360S 点群',[('配信開始','lidar-on'),('配信停止','lidar-off')])
         self.group(frame,'点群密度（配信中も変更可能）',[('軽量 800本/回','lidar-light'),('標準 8,000本/回','lidar-standard'),('高密度 40,000本/回','lidar-dense')])
         ttk.Label(frame,text='初期OFF・高密度・最大5 fps。Livox公式MID-360走査列をMID-360S視野角へ補正した近似です。速度はCPUとシーンに依存します。',wraplength=620).pack(anchor='w')
@@ -172,7 +178,14 @@ class ScenePanel:
         if self.demo_proc is not None and self.demo_proc.poll() is None and not self.demo_stopping:
             self.demo_stopping=True
             self.demo_proc.terminate();self.state.set("デモを停止中…")
-    def restart(self):
+    def change_mount(self,cmd):
+        from tkinter import messagebox
+        if self.busy:return
+        if self.recording.active() or self.demo_proc is not None and self.demo_proc.poll() is None:
+            messagebox.showinfo('MID-360S','記録とデモを停止してから変更してください。');return
+        if messagebox.askokcancel('MID-360S','着脱のためシミュレーションを再起動します。腕の姿勢とシーンは初期状態に戻ります。'):
+            self.restart(cmd)
+    def restart(self,cmd='restart'):
         if self.recording.active():
             self.stop_recording();self.root.after(100,self.restart);return
         if self.demo_proc is not None and self.demo_proc.poll() is None:
@@ -183,9 +196,12 @@ class ScenePanel:
             with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as client:
                 client.settimeout(1)
                 client.connect('/tmp/openarm-supervisor.sock')
-                client.sendall(b'restart\n')
+                client.sendall((cmd+'\n').encode())
                 reply=client.recv(64)
             if reply.strip()!=b'restarting':raise RuntimeError(reply.decode())
+            if cmd.startswith('lidar-'):
+                self.mount_state.set('切替中…')
+                self.root.after(15000,lambda:self.request('status'))
             self.state.set('再起動中… RVizとMuJoCoが開き直します。')
             self.detail.set('初期姿勢に戻ります。起動完了後に状態を更新してください。')
             self.restart_button.state(['disabled'])
@@ -239,6 +255,7 @@ class ScenePanel:
                 try:
                     d=json.loads(text);s=d['scene'];c=d['camera'];mark=lambda v:'ON' if v else 'OFF'
                     self.state.set(f'机 {mark(s["obstacles"])} ／ 直方体 {mark(s["objects"]["box"])} ／ ボトル {mark(s["objects"]["bottle"])} ／ カメラ {mark(c["enabled"])}')
+                    self.mount_state.set('装着中' if d['lidar'].get('mounted') else '未装着' if 'mounted' in d['lidar'] else '状態不明')
                     self.state.set(self.state.get()+f' ／ LiDAR {mark(d["lidar"]["enabled"])} ({d["lidar"].get("rays_per_frame",0):,}本/回)')
                     if self.opl_panel is not None and self.opl_panel.root.winfo_exists():self.opl_panel.update(s['objects'])
                     if self.ycb_panel is not None and self.ycb_panel.root.winfo_exists():self.ycb_panel.update(s['objects'])

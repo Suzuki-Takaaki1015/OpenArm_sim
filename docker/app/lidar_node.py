@@ -45,13 +45,15 @@ class Lidar(Node):
         try:self.latest=json.loads(msg.data)
         except (ValueError,TypeError) as exc:self.error=str(exc)
     def toggle(self,req,res):
+        if req.data and os.getenv('OPENARM_LIDAR_MOUNTED')=='0':
+            res.success=False;res.message='MID-360S is detached';return res
         self.enabled=req.data;self.error='';self.last_stamp=None;self.last_wall_time=None;self.cloud_hz=0.
         if not self.enabled:
             self.publish(np.empty((0,3),dtype='<f4'),self.latest['time'] if self.latest else 0.)
             self.data=None;self.model=None
         res.success=True;res.message='LiDAR on' if self.enabled else 'LiDAR off';return res
     def status(self,req,res):
-        res.success=True;res.message=json.dumps({'enabled':self.enabled,'error':self.error,'points':self.points,'scan_ms':self.scan_ms,'rays_per_frame':self.count,'fps_limit':self.fps,'nominal_rays_per_second':self.count*self.fps,'cloud_hz':self.cloud_hz,'last_sim_time':self.last_stamp,'model':'MID-360S','scan_pattern':PATTERN_NAME,'sample_window_s':self.window_seconds,'reference_period_s':REFERENCE_SIZE/SAMPLE_RATE,'sample_start_index':self.sample_start,'trajectory_calibrated':False,'mount_calibrated':False});return res
+        res.success=True;res.message=json.dumps({'mounted':os.getenv('OPENARM_LIDAR_MOUNTED')!='0','enabled':self.enabled,'error':self.error,'points':self.points,'scan_ms':self.scan_ms,'rays_per_frame':self.count,'fps_limit':self.fps,'nominal_rays_per_second':self.count*self.fps,'cloud_hz':self.cloud_hz,'last_sim_time':self.last_stamp,'model':'MID-360S','scan_pattern':PATTERN_NAME,'sample_window_s':self.window_seconds,'reference_period_s':REFERENCE_SIZE/SAMPLE_RATE,'sample_start_index':self.sample_start,'trajectory_calibrated':False,'mount_calibrated':False});return res
     def initialize(self):
         from sensor_model import load_sensor_model
         self.model,self.active=load_sensor_model(self.latest,textures=False);self.data=mujoco.MjData(self.model)

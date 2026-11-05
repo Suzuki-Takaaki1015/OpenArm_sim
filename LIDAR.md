@@ -4,7 +4,7 @@ OpenArm 1.0 / 2.0 share a fixed, project-designed chest-column mount. This is an
 
 ## Use
 
-Run `bash start.sh`, select the robot, and use **MID-360S 点群 → 配信開始** in the scene panel. RViz has **MID-360S PointCloud** enabled. Stop with **配信停止**. Sensor streaming defaults OFF; the physical sensor stays mounted. Server users use the same panel in the browser or the ROS services below.
+Both robots start without the housing or bracket. In the desktop or browser scene panel, select **MID-360S 本体とブラケット → 取り付ける** to restart the simulation with the sensor, then **MID-360S 点群 → 配信開始** to stream. Mount changes reset the scene and arm pose. Restarting only the ROS stack retains the selected mount; restarting the container restores the detached default. The services below control streaming after attachment.
 
 ```bash
 oa-ros service call /openarm/lidar/set_enabled std_srvs/srv/SetBool '{data: true}'

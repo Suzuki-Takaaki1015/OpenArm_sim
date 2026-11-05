@@ -19,9 +19,15 @@ def main():
         stopping=True
     signal.signal(signal.SIGTERM, stop_signal)
     signal.signal(signal.SIGINT, stop_signal)
+    mounted=False
     def start_stack():
+        from lidar_variant import detached
+        env=dict(os.environ,OPENARM_LIDAR_MOUNTED='1' if mounted else '0')
+        if not mounted:
+            for key in ('OPENARM_MODEL','OPENARM_SCENE'):
+                env[key]=str(detached(env[key]))
         print('[supervisor] Starting complete ROS/MoveIt/MuJoCo stack', flush=True)
-        return subprocess.Popen(['ros2','launch','/opt/openarm/app/simulation.launch.py',f'gui:={str(args.gui).lower()}'],start_new_session=True)
+        return subprocess.Popen(['ros2','launch','/opt/openarm/app/simulation.launch.py',f'gui:={str(args.gui).lower()}'],env=env,start_new_session=True)
     def stop_stack(process):
         if process is None or process.poll() is not None:return
         os.killpg(process.pid,signal.SIGINT)
@@ -55,7 +61,9 @@ def main():
                 client.settimeout(1)
                 try:request=client.recv(32).strip()
                 except socket.timeout:continue
-                if request!=b'restart':
+                if request in (b'lidar-attach',b'lidar-detach'):
+                    mounted=request==b'lidar-attach'
+                elif request!=b'restart':
                     client.sendall(b'unknown request\n');continue
                 client.sendall(b'restarting\n')
             stop_stack(stack)
