@@ -22,7 +22,8 @@ class Lidar(Node):
         self.window_seconds=1/self.fps;self.window_samples=round(SAMPLE_RATE/self.fps)
         if self.count>self.window_samples:raise ValueError('rays_per_frame exceeds physical sample budget for fps')
         self.sample_start=0
-        self.enabled=False;self.latest=None;self.model=None;self.error='';self.last_stamp=None;self.frame=0;self.points=0;self.scan_ms=0.
+        self.enabled=(os.getenv('OPENARM_LIDAR_AUTOSTART')=='1' and os.getenv('OPENARM_LIDAR_MOUNTED')=='1')
+        self.latest=None;self.model=None;self.error='';self.last_stamp=None;self.frame=0;self.points=0;self.scan_ms=0.
         self.create_subscription(String,'/openarm/sim_state',self.state,1)
         self.pub=self.create_publisher(PointCloud2,'/lidar/points',QoSProfile(depth=1,reliability=ReliabilityPolicy.RELIABLE))
         self.create_service(SetBool,'/openarm/lidar/set_enabled',self.toggle)

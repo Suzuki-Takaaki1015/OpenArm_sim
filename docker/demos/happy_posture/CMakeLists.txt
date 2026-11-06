@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.8)
+project(happy_posture)
+find_package(ament_cmake REQUIRED)
+install(PROGRAMS posture.py DESTINATION lib/${PROJECT_NAME} RENAME posture)
+ament_package()

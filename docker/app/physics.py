@@ -26,7 +26,8 @@ class Simulation:
         self.index = {name: j for j, name in enumerate(self.names)}
         self.qadr = m.jnt_qposadr[self.joint_ids].copy()
         self.dadr = m.jnt_dofadr[self.joint_ids].copy()
-        self.act_joint = np.array([list(self.joint_ids).index(int(j)) for j in m.actuator_trnid[:, 0]])
+        self.arm_act=[a for a,j in enumerate(m.actuator_trnid[:,0]) if j in self.joint_ids]
+        self.act_joint = [list(self.joint_ids).index(int(m.actuator_trnid[a,0])) for a in self.arm_act]
         if (np.any(m.actuator_trntype != mujoco.mjtTrn.mjTRN_JOINT)
                 or not np.allclose(m.actuator_gear[:, 0], 1)):
             raise ValueError('Unsupported actuator transmission')
@@ -40,7 +41,7 @@ class Simulation:
             if hinge:self.kp[j],self.kd[j],self.speed[j]=30.,.2,.5
         self.position_act = np.ones(m.nu, dtype=bool)
         self.motor_act = np.ones(m.nu, dtype=bool)
-        for a, j in enumerate(self.act_joint):
+        for a,j in zip(self.arm_act,self.act_joint):
             finger = 'finger' in self.names[j]
             if finger:
                 # Conservative 15 N/jaw; not the upstream 333 N nor Nm.
@@ -84,7 +85,7 @@ class Simulation:
         m, d = self.model, self.data
         limit = self.speed * m.opt.timestep
         self.reference += np.clip(self.target - self.reference, -limit, limit)
-        for a, j in enumerate(self.act_joint):
+        for a,j in zip(self.arm_act,self.act_joint):
             control = self.reference[j]
             if self.motor_act[a]:
                 control += d.qfrc_bias[self.dadr[j]] / self.kp[j]

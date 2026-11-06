@@ -27,7 +27,13 @@ def definition(cfg):
 def config():
     cfg=json.loads(Path(__file__).with_name('camera_config.json').read_text())
     d=definition(cfg);cfg['position_m']=d['depth_position'].tolist();cfg['rpy_rad']=[0.,math.pi/4,0.]
-    cfg['color_offset_m']=[0.,.015,0.]
+    if os.getenv('HAPPY_MOBILE') == '1':
+        from mobile_camera_datum import mobile_d435, PITCH, COLOR_OFFSET
+        cfg['position_m'] = mobile_d435()['depth'].tolist()
+        cfg['rpy_rad'] = [0., PITCH, 0.]
+        cfg['color_offset_m'] = COLOR_OFFSET.tolist()
+    else:
+        cfg['color_offset_m']=[0.,.015,0.]
     return cfg
 
 

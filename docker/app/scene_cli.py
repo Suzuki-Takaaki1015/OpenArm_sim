@@ -1,5 +1,8 @@
 """Toggle the worktable in MuJoCo and MoveIt; run while robot is stopped."""
 import argparse
+import os
+import socket
+import time
 import json, math
 import rclpy
 from rclpy.node import Node
@@ -21,6 +24,48 @@ def call(node, kind, name, request, timeout=60):
         if not future.done():raise RuntimeError(f'Service timed out: {name}; check scene state before moving robot')
         return future.result()
     finally:node.destroy_client(client)
+def start_lidar(node, allow_restart=True):
+    status_service='/openarm/lidar/status'
+    def status(timeout):
+        reply=call(node,Trigger,status_service,Trigger.Request(),timeout=timeout)
+        if not reply.success:raise RuntimeError(reply.message)
+        return json.loads(reply.message)
+
+    state=status(8)
+    restarting=False
+    if not state['mounted']:
+        if not allow_restart:
+            raise RuntimeError('MID-360Sの自動装着には再起動が必要です。記録・デモを停止してから配信を開始してください。')
+        with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as client:
+            client.settimeout(30)  # A concurrent restart can take up to 25 seconds to stop ROS.
+            client.connect('/tmp/openarm-supervisor.sock')
+            client.sendall(b'lidar-start\n')
+            reply=client.recv(64).strip()
+        if reply not in (b'restarting',b'mounted'):
+            raise RuntimeError('MID-360Sの自動装着を開始できませんでした: '+reply.decode(errors='replace'))
+        restarting=reply==b'restarting'
+    # A newly mounted stack starts its own scanner. Never enable the old detached node.
+    # On an already mounted stack SetBool is only needed if streaming was stopped.
+    deadline=time.monotonic()+140
+    requested=restarting
+    while time.monotonic()<deadline:
+        if state['mounted']:
+            if state['enabled'] and state.get('last_sim_time') is not None:
+                return 'MID-360S 点群配信中'
+            if not state['enabled']:
+                if requested:
+                    raise RuntimeError(state.get('error') or 'MID-360Sの配信が停止しました。')
+                result=call(node,SetBool,'/openarm/lidar/set_enabled',SetBool.Request(data=True),timeout=8)
+                if not result.success:raise RuntimeError(result.message)
+                requested=True
+        time.sleep(.4)
+        try:state=status(2)
+        except RuntimeError:
+            # During a restart discovery can still advertise the old service.
+            state={"mounted":False}
+            continue
+    raise RuntimeError('MID-360Sの初回点群を確認できませんでした。装着状態とシミュレーションログを確認してください。')
+
 def present(node):
     request=GetPlanningScene.Request()
     request.components.components=PlanningSceneComponents.WORLD_OBJECT_NAMES
@@ -41,7 +86,7 @@ def apply(node, enabled):
     if not call(node,ApplyPlanningScene,'/apply_planning_scene',request).success:
         raise RuntimeError('MoveIt rejected planning scene')
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off','lidar-on','lidar-off','lidar-light','lidar-standard','lidar-dense']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);p.add_argument('--support',default='worktable');args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=['on','off','status','camera-on','camera-off','lidar-on','lidar-off','lidar-light','lidar-standard','lidar-dense']+[key+'-'+action for key in ITEMS for action in ('on','off','reposition','place')]);p.add_argument('--x',type=float);p.add_argument('--y',type=float);p.add_argument('--yaw',type=float,default=0);p.add_argument('--support',default='worktable');p.add_argument('--no-restart',action='store_true');args=p.parse_args()
     if args.mode.endswith('-place') and (args.x is None or args.y is None or not all(math.isfinite(v) for v in [args.x,args.y,args.yaw])):p.error('Specify finite --x and --y (metres), and --yaw (degrees)')
     rclpy.init();node=Node('openarm_scene_cli')
     try:
@@ -52,12 +97,15 @@ def main():
             result=call(node,SetParametersAtomically,'/openarm_mid360s_sim/set_parameters_atomically',req).result
             if not result.successful:raise RuntimeError(result.reason)
             print(f'LiDAR: {count:,} rays/cloud. Actual cloud rate depends on CPU and simulation speed.');return
-        if args.mode.startswith('lidar-'):
-            req=SetBool.Request();req.data=args.mode=='lidar-on'
+        if args.mode=='lidar-on':
+            print(start_lidar(node,allow_restart=not args.no_restart));return
+        if args.mode=='lidar-off':
+            req=SetBool.Request();req.data=False
             result=call(node,SetBool,'/openarm/lidar/set_enabled',req)
             if not result.success:raise RuntimeError(result.message)
             print(result.message);return
-        ids={o['id'] for o in OBJECTS};before=present(node)
+        if os.getenv('HAPPY_MOBILE') == '1' and args.mode not in ('status','camera-on','camera-off'):
+            raise RuntimeError('機体全体モードの家具と机上物体は生活環境エディターで配置してください。')
         if args.mode=='status':
             scene=call(node,Trigger,'/openarm/scene/status',Trigger.Request())
             camera=call(node,Trigger,'/openarm/camera/status',Trigger.Request())
@@ -69,6 +117,7 @@ def main():
             result=call(node,SetBool,'/openarm/camera/set_enabled',req)
             if not result.success:raise RuntimeError(result.message)
             print(result.message);return
+        ids={o['id'] for o in OBJECTS};before=present(node)
         if args.mode.rsplit('-',1)[0] in ITEMS:
             key,action=args.mode.rsplit('-',1)
             if action!='off' and not ITEMS[key].get('furniture') and args.support=='worktable':

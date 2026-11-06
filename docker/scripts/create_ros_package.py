@@ -2,11 +2,16 @@
 """Create a read-only ROS learning package in the persistent development workspace."""
 import argparse
 import keyword
+import os
 from pathlib import Path
 import re
 import sys
 
 WORKSPACE = Path('/workspaces/OpenArm_dev')
+
+MOBILE = os.getenv('HAPPY_MOBILE') == '1'
+if MOBILE:
+    WORKSPACE = WORKSPACE / 'happy_ws'
 
 NODE = '''"""Read-only learning example: named joints, model metadata and bounded service calls."""
 import json
@@ -141,6 +146,11 @@ def create_package(name, workspace=WORKSPACE):
     if src.is_symlink():
         raise ValueError('Refusing a symlinked src directory')
     src.mkdir(exist_ok=True)
+    if MOBILE:
+        src = src / 'main'
+        if src.is_symlink():
+            raise ValueError('Refusing a symlinked main directory')
+        src.mkdir(exist_ok=True)
     target = src / name
     # Exclusive directory creation also rejects files and broken/existing symlinks.
     target.mkdir()
@@ -211,6 +221,8 @@ source /workspaces/OpenArm_dev/install/setup.bash && ros2 run {name} read_exampl
 配布する際はpackage.xmlとsetup.pyの作者・メール・ライセンスを自分のものに変更してください。
 ''',
     }
+    if MOBILE:
+        files['README.md'] = files['README.md'].replace('/workspaces/OpenArm_dev', str(workspace))
     for relative, content in files.items():
         path = target / relative
         path.parent.mkdir(parents=True, exist_ok=True)

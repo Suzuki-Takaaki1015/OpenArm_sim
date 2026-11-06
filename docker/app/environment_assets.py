@@ -5,14 +5,9 @@ import xml.etree.ElementTree as E
 import numpy as np
 from ycb_assets import items
 
-ITEMS={
- 'box':{'id':'openarm_grasp_box','label':'直方体','mass':0.10,'half_height':0.04,
-        'geoms':[{'type':'box','size':[0.025,0.02,0.04],'pos':[0,0,0],'rgba':[0.95,0.55,0.12,1]}]},
- 'bottle':{'id':'openarm_grasp_bottle','label':'500 mL PETボトル（近似）','mass':0.525,'half_height':0.105,
-        'geoms':[{'type':'cylinder','size':[0.0325,0.085],'pos':[0,0,-0.02],'rgba':[0.3,0.65,0.85,1]},
-                 {'type':'ellipsoid','size':[0.0325,0.0325,0.025],'pos':[0,0,0.065],'rgba':[0.3,0.65,0.85,1]},
-                 {'type':'cylinder','size':[0.014,0.014],'pos':[0,0,0.088],'rgba':[0.3,0.65,0.85,1]},
-                 {'type':'cylinder','size':[0.015,0.008],'pos':[0,0,0.102],'rgba':[0.1,0.25,0.65,1]}]}}
+from tabletop import PROPS
+
+ITEMS = {key: dict(PROPS[key], id='openarm_grasp_'+key) for key in ('box','bottle')}
 
 ITEMS['box_left']=copy.deepcopy(ITEMS['box'])
 ITEMS['box_left']['id']='openarm_grasp_box_left'

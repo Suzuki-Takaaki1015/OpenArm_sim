@@ -75,7 +75,7 @@ def build_image(rebuild):
         status('CHECK', 'Building Ubuntu 24.04 / ROS 2 / container venv (first run downloads dependencies)')
         logfile = STATE / 'build.log'
         spec=STATE/'build.json'
-        spec.write_text(json.dumps({'services':{'sim':{'image':IMAGE,'build':{'context':str(ROOT/'docker'),'labels':{'org.openarm.source':digest}}}}}),encoding='utf-8')
+        spec.write_text(json.dumps({'services':{'sim':{'image':IMAGE,'build':{'context':str(ROOT/'docker'),'target':('happy' if IMAGE.startswith('happy-') else 'arm'),'labels':{'org.openarm.source':digest}}}}}),encoding='utf-8')
         with logfile.open('w', encoding='utf-8') as log:
             proc = subprocess.Popen(['docker', 'compose', '--progress', 'plain', '-f', str(spec), 'build'], stdout=log, stderr=subprocess.STDOUT)
             try:
@@ -224,6 +224,7 @@ def wait_ready(mode, port):
     raise RuntimeError('Startup timeout. Run: python3 start.py --logs')
 
 def main():
+    global IMAGE
     p=argparse.ArgumentParser(description=__doc__)
     modes=p.add_mutually_exclusive_group()
     modes.add_argument('--cpu',action='store_true');modes.add_argument('--gpu',action='store_true')
@@ -232,7 +233,7 @@ def main():
     p.add_argument('--mujoco-viewer', choices=['on','off'], default='on', help='show both windows by default; off disables only the MuJoCo viewer')
     p.add_argument('--headless', action='store_true', help='ROS and MuJoCo physics without any GUI')
     p.add_argument('--display', choices=['auto','native','browser'], default='auto', help='auto: desktop windows when available; otherwise browser')
-    p.add_argument('--robot-version',choices=['1','2'],help='OpenArm model; prompted on interactive startup')
+    p.add_argument('--robot-version',choices=['1','2','3'],help='OpenArm model; prompted on interactive startup')
     p.add_argument('--port',type=int,default=6080)
     args=p.parse_args()
     if not 1<=args.port<=65535: p.error('port must be 1..65535')
@@ -263,12 +264,14 @@ def main():
         raise RuntimeError('Use a local Docker context. Remote Docker endpoints are not supported by this launcher.')
     if args.robot_version is None:
         if sys.stdin.isatty() and not args.check:
-            while args.robot_version not in ('1','2'):
-                args.robot_version=input('OpenArm model [1: OpenArm 1.0 / 2: OpenArm 2.0] (1): ').strip() or '1'
+            while args.robot_version not in ('1','2','3'):
+                args.robot_version=input('OpenArm model [1: OpenArm 1.0 / 2: OpenArm 2.0 / 3: Happy mignon (OpenArm 2.0 + omni base)] (1): ').strip() or '1'
         else:
             args.robot_version='1'
             status('CHECK','Noninteractive/check mode: OpenArm 1.0; use --robot-version 2 for 2.0')
-    status('OK',f'Robot: OpenArm {args.robot_version}.0')
+    mobile=args.robot_version=='3'
+    if mobile:IMAGE='happy-mignon-sim:0.6.0'
+    status('OK','Robot: Happy mignon / OpenArm 2.0' if mobile else f'Robot: OpenArm {args.robot_version}.0')
     build_image(args.rebuild)
     mode, opts, reason=select_presentation(args,system,endpoint)
     status('OK',f'Display: {"none" if mode == "headless" else "browser" if mode == "cpu" else "host desktop"}; rendering: {"GPU" if mode == "gpu" else "CPU"} - {reason}')
@@ -280,12 +283,14 @@ def main():
     if old:
         docker('stop',NAME);docker('rm',NAME)
     def launch(selected, device_options):
-        options=['run','-d','-e',f'OPENARM_MUJOCO_GUI={str(viewer_enabled).lower()}','-e',f'OPENARM_VERSION={args.robot_version}','-e',f'LP_NUM_THREADS={max(1, int(info.get("NCPU") or os.cpu_count() or 1))}','-e','OPENARM_VIEWER_FPS=30','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
-        dev = STATE / 'dev_ws'
-        (dev / 'src').mkdir(parents=True, exist_ok=True)
+        options=['run','-d','-e',f'OPENARM_MUJOCO_GUI={str(viewer_enabled).lower()}','-e',f'OPENARM_VERSION={2 if mobile else args.robot_version}','-e',f'HAPPY_MOBILE={int(mobile)}','-e',f'LP_NUM_THREADS={max(1, int(info.get("NCPU") or os.cpu_count() or 1))}','-e','OPENARM_VIEWER_FPS=30','--init','--name',NAME,'--label',f'{LABEL}={ROOT}','--shm-size=512m',*device_options]
+        dev = STATE / ('happy_robot_pc' if mobile else 'dev_ws')
+        (dev if mobile else dev / 'src').mkdir(parents=True, exist_ok=True)
         (dev / '.home').mkdir(exist_ok=True)
         guide = dev / 'README.md'
-        if not guide.exists():
+        if mobile and not guide.exists():
+            guide.write_bytes((ROOT / 'docker/mobile/ROBOT_PC.md').read_bytes())
+        elif not guide.exists():
             guide.write_text('# OpenArm development workspace\n\nCommands run inside Docker. Clone ROS packages into src/, then run colcon build --symlink-install here.\nFiles persist on the host under .openarm/dev_ws.\nSimulation source: /workspaces/OpenArm_sim.\n', encoding='utf-8')
         options += ['--mount', f'type=bind,source={ROOT},target=/workspaces/OpenArm_sim',
                     '--mount', f'type=bind,source={dev},target=/workspaces/OpenArm_dev']

@@ -7,7 +7,8 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 # Compatible with RViz defaults and BEST_EFFORT sensor readers.
 IMAGE_QOS = QoSProfile(depth=2, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)
-from sensor_msgs.msg import Image,CameraInfo
+from sensor_msgs.msg import Image,CameraInfo,PointCloud2
+from rgbd_cloud import point_cloud
 from std_msgs.msg import String
 from std_srvs.srv import SetBool,Trigger
 from geometry_msgs.msg import TransformStamped
@@ -32,11 +33,24 @@ class Camera(Node):
         for stream in ('color','depth','aligned_depth_to_color'):
             name='image_raw' if stream=='color' or stream=='aligned_depth_to_color' else 'image_rect_raw'
             self.pub[stream]=(self.create_publisher(Image,f'/camera/camera/{stream}/{name}',IMAGE_QOS),self.create_publisher(CameraInfo,f'/camera/camera/{stream}/camera_info',IMAGE_QOS))
+        self.mobile=os.getenv('HAPPY_MOBILE')=='1'
+        self.camera_pubs={}
+        self.clouds={}
+        self.d455={'color':{'width':320,'height':200,'vertical_fov_deg':65.},
+                   'depth':{'width':424,'height':240,'vertical_fov_deg':58.}}
+        if self.mobile:
+            for camera in ('d435i','d455'):
+                for stream in ('color','depth','aligned_depth_to_color'):
+                    prefix=f'/camera/{camera}/{stream}'
+                    leaf='image_rect_raw' if stream=='depth' else 'image_raw'
+                    self.camera_pubs[camera,stream]=(self.create_publisher(Image,prefix+'/'+leaf,IMAGE_QOS),
+                                                     self.create_publisher(CameraInfo,prefix+'/camera_info',IMAGE_QOS))
+                self.clouds[camera]=self.create_publisher(PointCloud2,f'/camera/{camera}/depth/color/points',IMAGE_QOS)
         self.tf=StaticTransformBroadcaster(self);self.transforms()
         self.create_timer(1/self.cfg['fps'],self.render)
     def state(self,msg):self.latest=json.loads(msg.data)
     def status(self,req,res):
-        res.success=True;res.message=json.dumps({'enabled':self.enabled,'error':self.error,'mount_calibrated':self.cfg['calibration_verified'],'wrist_cameras':list(self.wrists)});return res
+        res.success=True;res.message=json.dumps({'enabled':self.enabled,'error':self.error,'mount_calibrated':self.cfg['calibration_verified'],'wrist_cameras':list(self.wrists),'rgbd_cameras':list(self.clouds) if self.mobile else ['d435']});return res
     def toggle(self,req,res):
         self.enabled=req.data;self.error=''
         if not self.enabled:
@@ -81,21 +95,60 @@ class Camera(Node):
                 q=np.empty(4);mujoco.mju_mulQuat(q,self.model.cam_quat[cid],np.array([0.,1.,0.,0.]))
                 transform.transform.rotation.w,transform.transform.rotation.x,transform.transform.rotation.y,transform.transform.rotation.z=map(float,q)
                 transforms.append(transform)
+            if self.mobile:
+                for channel in ('color','depth'):
+                    cid=self.model.camera('d455_'+channel).id
+                    t=TransformStamped()
+                    t.header.frame_id='base_link'
+                    t.child_frame_id=f'd455_{channel}_optical_frame'
+                    t.transform.translation.x,t.transform.translation.y,t.transform.translation.z=map(float,self.model.cam_pos[cid])
+                    q=np.empty(4)
+                    mujoco.mju_mulQuat(q,self.model.cam_quat[cid],np.array([0.,1.,0.,0.]))
+                    t.transform.rotation.w,t.transform.rotation.x,t.transform.rotation.y,t.transform.rotation.z=map(float,q)
+                    transforms.append(t)
             self.tf.sendTransform(self.base_transforms+transforms)
         self.get_logger().info('Chest RGB-D and available official wrist RGB cameras enabled')
-    def publish(self,stream,pixels,snapshot):
+    def publish(self,stream,pixels,snapshot,camera='d435i'):
         c=self.wrists[stream] if stream in self.wrists else self.cfg['depth' if stream=='depth' else 'color'];w,h=c['width'],c['height']
         frame=f'camera_{stream[6:]}_wrist_optical_frame' if stream in self.wrists else 'camera_depth_optical_frame' if stream=='depth' else 'camera_color_optical_frame'
+        if camera=='d455':
+            c=self.d455['depth' if stream=='depth' else 'color'];w,h=c['width'],c['height']
+            frame='d455_depth_optical_frame' if stream=='depth' else 'd455_color_optical_frame'
+        depth_mm=None
         msg=Image();ns=round(snapshot['time']*1e9);msg.header.stamp.sec,msg.header.stamp.nanosec=divmod(ns,1000000000);msg.header.frame_id=frame
         msg.height=h;msg.width=w;msg.is_bigendian=0
         if stream=='color' or stream in self.wrists:msg.encoding='rgb8';msg.step=w*3;msg.data=pixels.astype('uint8').tobytes()
         else:
-            valid=np.isfinite(pixels)&(pixels>=self.cfg['min_depth_m'])&(pixels<=self.cfg['max_depth_m'])
-            pixels=np.where(valid,pixels*1000,0);msg.encoding='16UC1';msg.step=w*2;msg.data=np.rint(pixels).astype('<u2').tobytes()
+            near,far=(.18,6.) if camera=='d455' else (self.cfg['min_depth_m'],self.cfg['max_depth_m'])
+            valid=np.isfinite(pixels)&(pixels>=near)&(pixels<=far)
+            pixels=np.where(valid,pixels*1000,0);msg.encoding='16UC1';msg.step=w*2;depth_mm=np.rint(pixels).astype('<u2');msg.data=depth_mm.tobytes()
         info=CameraInfo();info.header=msg.header;info.width=w;info.height=h;info.distortion_model='plumb_bob';info.d=[0.0]*5
         f=h/(2*math.tan(math.radians(c['vertical_fov_deg'])/2));cx=w/2;cy=h/2
         info.k=[f,0.,cx,0.,f,cy,0.,0.,1.];info.r=[1.,0.,0.,0.,1.,0.,0.,0.,1.];info.p=[f,0.,cx,0.,0.,f,cy,0.,0.,0.,1.,0.]
-        self.pub[stream][0].publish(msg);self.pub[stream][1].publish(info)
+        destinations=[]
+        if camera=='d435i':destinations.append(self.pub[stream])
+        if (camera,stream) in self.camera_pubs:destinations.append(self.camera_pubs[camera,stream])
+        for images,infos in destinations:
+            images.publish(msg);infos.publish(info)
+        return info,depth_mm
+
+    def render_rgbd(self,camera,snapshot):
+        cfg=self.d455 if camera=='d455' else self.cfg
+        model_name='d455' if camera=='d455' else 'd435'
+        color=self.renderer.resize_viewport(cfg['color']['width'],cfg['color']['height'])
+        color.disable_depth_rendering()
+        color.update_scene(self.data,camera=model_name+'_color')
+        rgb=color.render().copy()
+        self.publish('color',rgb,snapshot,camera)
+        color.enable_depth_rendering()
+        info,mm=self.publish('aligned_depth_to_color',color.render(),snapshot,camera)
+        cloud=self.clouds.get(camera)
+        if cloud is not None and cloud.get_subscription_count():
+            cloud.publish(point_cloud(info,rgb,mm))
+        depth=self.renderer.resize_viewport(cfg['depth']['width'],cfg['depth']['height'])
+        depth.enable_depth_rendering()
+        depth.update_scene(self.data,camera=model_name+'_depth')
+        self.publish('depth',depth.render(),snapshot,camera)
     def render(self):
         if not self.enabled or not self.latest or self.latest['time']==self.last_stamp:return
         snapshot=self.latest
@@ -114,9 +167,8 @@ class Camera(Node):
                     g=self.mj.mj_name2id(m,self.mj.mjtObj.mjOBJ_GEOM,f'{obj["id"]}_{i}')
                     if g>=0:set_visibility(m,g,geom,snapshot['objects'][key]['enabled'])
             self.mj.mj_forward(m,d)
-            color=self.renderer.resize_viewport(self.cfg['color']['width'],self.cfg['color']['height']);color.disable_depth_rendering();color.update_scene(d,camera='d435_color');self.publish('color',color.render().copy(),snapshot)
-            color.enable_depth_rendering();self.publish('aligned_depth_to_color',color.render().copy(),snapshot)
-            depth=self.renderer.resize_viewport(self.cfg['depth']['width'],self.cfg['depth']['height']);depth.enable_depth_rendering();depth.update_scene(d,camera='d435_depth');self.publish('depth',depth.render().copy(),snapshot)
+            self.render_rgbd('d435i',snapshot)
+            if self.mobile:self.render_rgbd('d455',snapshot)
             for stream,c in self.wrists.items():
                 renderer=self.renderer.resize_viewport(c['width'],c['height']);renderer.disable_depth_rendering();renderer.update_scene(d,camera=c['camera']);self.publish(stream,renderer.render().copy(),snapshot)
             self.last_stamp=snapshot['time']

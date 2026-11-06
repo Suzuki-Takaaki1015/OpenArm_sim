@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.8)
+project(happy_robot)
+find_package(ament_cmake REQUIRED)
+install(PROGRAMS robot_status.py DESTINATION lib/${PROJECT_NAME} RENAME robot_status)
+ament_package()

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 ARG ROS_BASE=ros:jazzy-ros-base-noble
-FROM ${ROS_BASE}
+FROM ${ROS_BASE} AS arm
 ENV DEBIAN_FRONTEND=noninteractive
 ARG ROS_APT_MIRROR=http://packages.ros.org/ros2/ubuntu
 COPY bootstrap/install_apt.sh /opt/openarm/bootstrap/install_apt.sh
@@ -37,7 +37,7 @@ RUN useradd --create-home --uid 10001 sim \
 
 # Demo overlay is independent of runtime app and generated models.
 COPY demos /opt/openarm/demo_ws/src
-RUN . /opt/ros/jazzy/setup.sh && cd /opt/openarm/demo_ws && colcon build --symlink-install --packages-select openarm_demos
+RUN . /opt/ros/jazzy/setup.sh && cd /opt/openarm/demo_ws && colcon build --symlink-install --packages-select openarm_demos happy_posture
 
 COPY vendor/v1 /opt/openarm/models/v1
 COPY vendor/v2 /opt/openarm/models/v2
@@ -70,3 +70,12 @@ WORKDIR /home/sim
 EXPOSE 6080
 ENTRYPOINT ["/opt/openarm/scripts/entrypoint.sh"]
 CMD ["web"]
+
+# Mobile mode is a separate target: desktop-arm images do not install hardware drivers.
+FROM arm AS happy
+USER root
+RUN sh /opt/openarm/bootstrap/install_apt.sh ros-jazzy-urg-node ros-jazzy-ament-cmake-auto ros-jazzy-nav-msgs ros-jazzy-navigation2 ros-jazzy-nav2-bringup ros-jazzy-slam-toolbox && rm -rf /var/lib/apt/lists/*
+RUN git clone -b jazzy https://github.com/ros-drivers/urg_node.git /opt/happy/seed/urg_node && cd /opt/happy/seed/urg_node && git checkout --detach 1b3e5502ca162a2fa03c591b04ce97c9cdb695a6
+COPY mobile /opt/happy/
+RUN python /opt/happy/build_mobile.py && python /opt/happy/navigation/prepare_params.py
+USER sim

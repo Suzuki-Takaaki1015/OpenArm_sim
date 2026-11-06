@@ -1,0 +1,94 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+  - Class: nav2_rviz_plugins/Navigation 2
+    Name: Navigation 2
+Visualization Manager:
+  Global Options:
+    Fixed Frame: map
+    Background Color: 15; 18; 22
+    Frame Rate: 20
+  Displays:
+    - Class: rviz_default_plugins/PointCloud2
+      Name: MID-360S 3D LiDAR
+      Enabled: true
+      Topic: {Value: /lidar/points, Reliability Policy: Best Effort, Durability Policy: Volatile, Depth: 5}
+      Position Transformer: XYZ
+      Color Transformer: AxisColor
+      Axis: Z
+      Use Fixed Frame: true
+      Style: Points
+      Size (Pixels): 2
+      Decay Time: 1
+    - Class: rviz_default_plugins/Map
+      Name: Sensor map
+      Enabled: true
+      Draw Behind: true
+      Alpha: 0.55
+      Topic: {Value: /map, Durability Policy: Transient Local, Reliability Policy: Reliable}
+    - Class: rviz_default_plugins/RobotModel
+      Name: Happy mignon
+      Enabled: true
+      Description Source: Topic
+      Description Topic: {Value: /robot_description, Durability Policy: Transient Local, Reliability Policy: Reliable}
+    - Class: rviz_default_plugins/LaserScan
+      Name: UTM-30LX
+      Enabled: true
+      Topic: {Value: /scan, Reliability Policy: Best Effort}
+      Style: Points
+      Size (Pixels): 3
+      Color Transformer: FlatColor
+      Color: 55; 218; 235
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Chest D435i RGB-D
+      Enabled: false
+      Topic: {Value: /camera/d435i/depth/color/points, Reliability Policy: Best Effort}
+      Color Transformer: RGB8
+      Style: Points
+      Size (Pixels): 2
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Chassis D455 RGB-D
+      Enabled: false
+      Topic: {Value: /camera/d455/depth/color/points, Reliability Policy: Best Effort}
+      Color Transformer: RGB8
+      Style: Points
+      Size (Pixels): 2
+    - Class: rviz_default_plugins/Path
+      Name: Global plan
+      Enabled: true
+      Topic: {Value: /plan}
+    - Class: rviz_default_plugins/Map
+      Name: Local costmap
+      Enabled: false
+      Color Scheme: costmap
+      Alpha: 0.45
+      Topic: {Value: /local_costmap/costmap, Durability Policy: Transient Local}
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic: /initialpose
+    - Class: nav2_rviz_plugins/GoalTool
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Target Frame: base_link
+      Distance: 5.6
+      Focal Point: {X: 0, Y: 0, Z: 0.45}
+      Pitch: 0.45
+      Yaw: 0.8
+    Saved:
+      - Name: Robot 3D
+        Class: rviz_default_plugins/Orbit
+        Target Frame: base_link
+        Distance: 3.5
+        Focal Point: {X: 0, Y: 0, Z: 0.45}
+        Pitch: 0.45
+        Yaw: 0.8
+      - Name: Map 2D
+        Class: rviz_default_plugins/TopDownOrtho
+        Target Frame: <Fixed Frame>
+        Scale: 75
+Window Geometry: {Width: 980, Height: 780}

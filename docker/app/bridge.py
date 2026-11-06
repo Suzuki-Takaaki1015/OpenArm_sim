@@ -22,21 +22,34 @@ class Bridge(Node):
     def __init__(self):
         super().__init__('openarm_mujoco')
         self.sim = Simulation()
+        self.mobile=None
+        if os.getenv('HAPPY_MOBILE')=='1':
+            from mobile_bridge import Mobile
+            self.mobile=Mobile(self)
+        # World poses of free room bodies are shared with RViz / MoveIt after contact.
+        self.tabletop_bodies = {}
+        if self.mobile:
+            for bid in range(self.sim.model.nbody):
+                name = mujoco.mj_id2name(self.sim.model,mujoco.mjtObj.mjOBJ_BODY,bid) or ''
+                if name.startswith('happy_room_') and '_prop_' in name:
+                    self.tabletop_bodies[name] = bid
         self.objects = DynamicObjects(self.sim)
         self.obstacles_enabled = False
-        from preset_runtime import Presets
-        self.presets = Presets(self)
-        self.create_service(Trigger, '/openarm/scene/capture', self.capture_scene)
-        self.create_service(SetParametersAtomically, '/openarm/scene/restore', self.restore_scene)
+        if not self.mobile:
+            from preset_runtime import Presets
+            self.presets = Presets(self)
+            self.create_service(Trigger, '/openarm/scene/capture', self.capture_scene)
+            self.create_service(SetParametersAtomically, '/openarm/scene/restore', self.restore_scene)
         self.performance = {"real_time_factor": 0.0}
         self.snapshot_pub = self.create_publisher(String, "/openarm/sim_state", 1)
         self.object_pub = self.create_publisher(String, "/openarm/object_state", 1)
         self.create_service(Trigger, "/openarm/scene/status", self.scene_status)
-        for key in ITEMS:
-            self.create_service(SetParametersAtomically, f"/openarm/objects/{key}/place", lambda req,res,key=key: self.place_object(key,req,res))
-            self.create_service(SetBool, f"/openarm/objects/{key}/set_enabled", lambda req,res,key=key: self.set_object(key,req,res))
-            self.create_service(Trigger, f"/openarm/objects/{key}/reposition", lambda req,res,key=key: self.reposition_object(key,req,res))
-        self.create_service(SetBool, '/openarm/set_obstacles', self.set_obstacles)
+        if not self.mobile:
+            for key in ITEMS:
+                self.create_service(SetParametersAtomically, f"/openarm/objects/{key}/place", lambda req,res,key=key: self.place_object(key,req,res))
+                self.create_service(SetBool, f"/openarm/objects/{key}/set_enabled", lambda req,res,key=key: self.set_object(key,req,res))
+                self.create_service(Trigger, f"/openarm/objects/{key}/reposition", lambda req,res,key=key: self.reposition_object(key,req,res))
+            self.create_service(SetBool, '/openarm/set_obstacles', self.set_obstacles)
         self.states = self.create_publisher(JointState, '/mujoco/joint_states', 10)
         self.clock = self.create_publisher(Clock, '/clock', 10)
         self.create_subscription(JointState, '/mujoco/joint_commands', self.command, 1)
@@ -64,7 +77,7 @@ class Bridge(Node):
 
     def scene_status(self, request, response):
         response.success = True
-        response.message = json.dumps({'obstacles':self.obstacles_enabled,'objects':self.objects.active,'performance':self.performance})
+        response.message = json.dumps({'obstacles':self.obstacles_enabled,'objects':self.objects.active,'tabletop_count':len(self.tabletop_bodies),'performance':self.performance})
         return response
     def set_object(self, key, request, response):
         try:
@@ -99,9 +112,11 @@ class Bridge(Node):
         return response
     def object_snapshot(self):
         # Small truth stream: no robot qpos or camera render rate increase.
+        d = self.sim.data
+        tabletop = {name: d.xpos[b].tolist()+d.xquat[b].tolist() for name,b in self.tabletop_bodies.items()}
         msg=String()
         msg.data=json.dumps({'time':self.sim.data.time,'obstacles':self.obstacles_enabled,
-                             'objects':self.objects.snapshot()})
+                             'objects':self.objects.snapshot(),'tabletop':tabletop})
         self.object_pub.publish(msg)
     def snapshot(self):
         msg=String()
@@ -205,7 +220,14 @@ def main():
             deadline = time.monotonic()
             while rclpy.ok() and (viewer is None or viewer.is_running()):
                 rclpy.spin_once(node, timeout_sec=0)
+                if node.mobile:node.mobile.step()
                 node.sim.step()
+                if node.mobile:
+                    from builtin_interfaces.msg import Time
+                    sec,ns=divmod(round(node.sim.data.time*1e9),10**9)
+                    stamp=Time(sec=sec,nanosec=ns)
+                    if tick%10==0:node.mobile.publish(stamp)
+                    node.mobile.scan(stamp)
                 tick += 1
                 if tick % 5 == 0:
                     node.publish_state()

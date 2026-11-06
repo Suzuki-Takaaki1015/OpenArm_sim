@@ -1,5 +1,6 @@
 """Reconcile planning geometry and display physical truth independently."""
 import copy
+import os
 import asyncio
 import json
 import time
@@ -93,6 +94,13 @@ class SceneSync(Node):
         self.descriptions = {o['id']: o for o in ITEMS.values()}
         self.descriptions.update({o['id']: dict(geoms=[dict(type='box', size=[v/2 for v in o['size']],
             pos=[0, 0, 0], rgba=o['rgba'])]) for o in OBJECTS})
+        self.room_poses = {}
+        if os.getenv('HAPPY_ROOM_SNAPSHOT'):
+            from room_layout import descriptions, read
+            for identifier, (geometry, position) in descriptions(read(Path(os.environ['HAPPY_ROOM_SNAPSHOT']))).items():
+                self.descriptions[identifier] = geometry
+                if 'mass' not in geometry:
+                    self.room_poses[identifier] = position
         self.latest = None
         self.hidden_markers = {}
         self.received = 0.
@@ -139,7 +147,8 @@ class SceneSync(Node):
         self.display()
 
     def desired(self):
-        result = {}
+        result = dict(self.room_poses)
+        result.update(self.latest.get('tabletop', {}))
         for key, description in ITEMS.items():
             state = self.latest['objects'].get(key)
             result[description['id']] = (state['position'] + state['quaternion_wxyz']) if state and state['enabled'] else None

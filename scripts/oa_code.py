@@ -33,7 +33,9 @@ def main():
     owner = (info['Config'].get('Labels') or {}).get('org.openarm.launcher')
     if not owner:
         raise RuntimeError('This container was not created by the OpenArm launcher.')
-    if not any(m['Destination'] == WORKSPACE and m.get('RW') and m['Source'] == str(Path(owner)/'.openarm/dev_ws') for m in info['Mounts']):
+    mobile = 'HAPPY_MOBILE=1' in (info['Config'].get('Env') or [])
+    storage = Path(owner) / '.openarm' / ('happy_robot_pc' if mobile else 'dev_ws')
+    if not any(m['Destination'] == WORKSPACE and m.get('RW') and m['Source'] == str(storage) for m in info['Mounts']):
         raise RuntimeError('The development folder is not mounted. Restart once with bash start.sh in ' + owner)
     extensions = run([code, '--list-extensions']).lower().splitlines()
     if EXTENSION not in extensions:
@@ -46,6 +48,7 @@ def main():
     env = json.loads(run(['docker', 'exec', NAME, '/opt/openarm/scripts/entrypoint.sh', 'python', '-c', 'import os,json;print(json.dumps(dict(os.environ)))']))
     keys = ['OPENARM_VERSION', 'OPENARM_MODEL', 'OPENARM_SCENE', 'OPENARM_CONFIG', 'PATH', 'PYTHONPATH', 'LD_LIBRARY_PATH', 'AMENT_PREFIX_PATH', 'CMAKE_PREFIX_PATH', 'COLCON_PREFIX_PATH', 'ROS_DISTRO', 'ROS_VERSION', 'ROS_PYTHON_VERSION', 'ROS_DOMAIN_ID', 'ROS_AUTOMATIC_DISCOVERY_RANGE']
     remote_env = {k: env[k] for k in keys if k in env}
+    remote_env['HAPPY_MOBILE'] = '1' if mobile else '0'
     remote_env['HOME'] = WORKSPACE + '/.home'
     directory = Path.home() / '.config/Code/User/globalStorage/ms-vscode-remote.remote-containers/nameConfigs'
     directory.mkdir(parents=True, exist_ok=True)
@@ -63,7 +66,7 @@ def main():
     authority = json.dumps({'containerName': info['Id']}, separators=(',', ':')).encode().hex()
     uri = 'vscode-remote://attached-container+' + authority + WORKSPACE
     print('[OK] Execution: Docker ' + NAME + '; workspace: ' + WORKSPACE, flush=True)
-    print('[OK] Persistent storage: ' + owner + '/.openarm/dev_ws', flush=True)
+    print('[OK] Persistent storage: ' + str(storage), flush=True)
     if args.check:
         print('[OK] VS Code, Dev Containers, shared workspace and ROS terminal configuration ready')
         return

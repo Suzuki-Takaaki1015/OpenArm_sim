@@ -29,7 +29,7 @@ exec(compile(selected,'sync','exec'),namespace)
 Sync=namespace['SceneSync']
 def state(x):return dict(enabled=True,position=[x,0,0],quaternion_wxyz=[1,0,0,0])
 def make():
- n=Sync();n.latest=dict(objects=dict(box=state(1),other=state(2)),obstacles=False)
+ n=Sync();n.room_poses={};n.latest=dict(objects=dict(box=state(1),other=state(2)),obstacles=False)
  n.received=time.monotonic();n.pending=None;n.pending_since=0;n.next_query=time.monotonic()+10
  n.verified=True;n.paused=False;n.attached=set();n.known={};n.descriptions={'box':{},'other':{},'table':{}}
  n.client=Client();n.apply=Client();n.get_logger=lambda:NS(warning=lambda *a,**k:None)
