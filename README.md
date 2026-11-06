@@ -1,20 +1,18 @@
 # OpenArm_sim
 
-**起動メニューの 3** で、OpenArm 2.0 と3輪オムニ台車を搭載した Happy mignon を選択できます。[ロボットPCの開発手順、台車制御、2D LiDAR](docker/mobile/ROBOT_PC.md)
+**OpenArm 1.0 / 2.0と、3輪オムニ台車を搭載したHappy mignonを、ROS 2・MoveIt 2・MuJoCoで動かすDocker開発環境です。**
 
-
-**OpenArm 1.0 / 2.0を、ROS 2・MoveIt 2・MuJoCoで動かすDocker開発環境です。**
-
-Ubuntu 24.04向けのセットアップ、シミュレーション、物体配置GUI、RGB-Dカメラ、双腕把持デモ、コンテナに接続するVS Code開発環境をまとめています。
+Ubuntu 24.04向けのセットアップ、物体配置GUI、RGB-Dカメラ、双腕把持デモ、コンテナに接続するVS Code開発環境をまとめています。**Happy mignon（モード3）** では、生活環境エディター・台車走行・SLAM・Nav2も使用できます。初めて使う方は[モード3の使用ガイド](#mignon)へ進んでください。
 
 | 構成 | 内容 |
 |---|---|
-| ロボット | OpenArm 1.0 / 2.0（起動時に選択） |
+| ロボット | モード1：OpenArm 1.0／モード2：OpenArm 2.0／モード3：Happy mignon |
 | ソフトウェア | Ubuntu 24.04・ROS 2 Jazzy・MoveIt 2・MuJoCo |
 | 描画 | GPUを検査して選択。利用できない場合はCPU描画 |
 | 物理計算 | CPUで実行 |
 | 物体 | 直方体・500 mLボトル・YCBライブラリ103項目 |
-| カメラ | 胸部D435のRGB・深度画像をROSへ配信 |
+| カメラ | 胸部RGB-D、2.0の左右手内RGB。モード3は胸部D435i・台車D455のRGB-Dにも対応 |
+| 移動・地図（モード3） | 3輪オムニ台車、2D LiDAR、SLAM Toolbox、Nav2、任意装着のMID-360S |
 
 ## OPL 2026 の物体・家具
 
@@ -26,6 +24,7 @@ Ubuntu 24.04向けのセットアップ、シミュレーション、物体配�
 ## 目次
 
 - [はじめに：起動する](#quick-start)
+- [Happy mignon モード（モード3）の使い方](#mignon)
 - [GUIで操作する](#gui)
 - [よく使うコマンド](#commands)
 - [VS Codeで開発する](#development)
@@ -60,11 +59,11 @@ cd ~/OpenArm_sim
 /usr/bin/bash start.sh
 ```
 
-環境チェック後に、画面の案内に従って **1（OpenArm 1.0）** または **2（OpenArm 2.0）** を選びます。初回は依存関係のダウンロードとDockerイメージのビルドに時間がかかります。2回目以降は、ソースが変わらなければ既存イメージを再利用します。
+環境チェック後に、画面の案内に従って **1（OpenArm 1.0）**、**2（OpenArm 2.0）**、**3（Happy mignon）** から選びます。初回は依存関係のダウンロードとDockerイメージのビルドに時間がかかります。2回目以降は、ソースが変わらなければ既存イメージを再利用します。
 
 ### 3. 起動完了を確認する
 
-次の表示が出たら、制御系の準備が完了です。
+次の表示が出たら、腕・グリッパーの制御系の準備が完了です。モード3では、さらに[地図とナビゲーションの状態](#mignon-navigation)を確認します。
 
 ```text
 All 5 ROS controllers active; simulation ready
@@ -86,6 +85,296 @@ source ~/.bashrc
 ```
 
 以降は[よく使うコマンド](#commands)から操作できます。子プロセスの起動スクリプトから、親ターミナルの関数を直接変更することはできません。
+
+<a id="mignon"></a>
+## Happy mignon モード（モード3）の使い方
+
+**OpenArm 2.0・3輪オムニ台車・センサー・地図作成・Nav2をまとめて使用するモードです。** 腕単体のモード1・2とは開発ワークスペースが分かれています。初めて使う場合は、次の順で進めてください。
+
+**モード3で起動 → 部屋を作成・適用 → 手動で走行して地図作成 → 地図を保存 → 保存地図で起動 → Nav2で移動**
+
+- [起動と画面の見分け方](#mignon-start)
+- [生活環境を作成・保存・切替](#mignon-room)
+- [台車と腕を操作](#mignon-controls)
+- [マップ作成からナビゲーション](#mignon-navigation)
+- [カメラ・3D LiDARを表示](#mignon-sensors)
+- [VS Codeで開発・パラメーター調整](#mignon-development)
+- [主なROS 2インターフェース](#mignon-ros)
+- [困ったときの確認](#mignon-help)
+
+<a id="mignon-start"></a>
+### 起動と画面の見分け方
+
+**実行場所：ホストUbuntuの端末。** ホーム直下にクローンした場合：
+
+```bash
+cd ~/OpenArm_sim
+bash start.sh --robot-version 3
+```
+
+引数なしで起動した場合は、環境チェック後の機体選択で **3: Happy mignon** を選びます。初回は専用イメージのビルドと、ロボットPC用ワークスペースの初期ビルドを行います。すでに開いていた端末で `oa` などが使えない場合は、次を一度実行してください。
+
+```bash
+source ~/.bashrc
+```
+
+| 画面 | 用途・見分け方 |
+|---|---|
+| MuJoCo | 機体、部屋、物体の物理シミュレーションを表示 |
+| シミュレーション用RViz | **MotionPlanning** で腕を操作。配置した家具・物体も表示 |
+| センサー・運用用RViz | **Navigation 2** パネルがある画面。機体、センサー点群、観測した地図、経路を表示 |
+| シーンとセンサー | 手動走行、腕の姿勢、カメラ・LiDAR配信、地図保存、再起動を操作 |
+| 生活環境エディター | シーンパネルの **生活環境エディターを開く** から別ウィンドウで開く |
+
+Desktopではホスト上にウィンドウを表示します。GUIセッションがない場合はブラウザー表示になり、接続先が起動ログに表示されます。[共通の起動手順](#quick-start)も参照してください。
+
+`All 5 ROS controllers active; simulation ready` は腕・グリッパーの制御準備が完了した表示です。**地図作成やNav2の準備完了を意味する表示ではありません。** 運用用RVizとシーンパネルで地図・動作モードを確認します。
+
+<a id="mignon-room"></a>
+### 生活環境を作成・保存・切替
+
+1. **生活環境エディターを開く** を押します。
+2. 配置ツールから **壁・机・椅子・収納棚** を選び、平面図をクリックします。
+3. **選択・移動** で家具をドラッグするか、右欄で中心座標・向き・寸法を入力して **数値を反映** を押します。距離はm、角度は度です。平面図は右が+X、上が+Yです。
+4. **環境を保存** で名前を付けます。例：`大会A_予選`、`大会A_決勝`。
+5. **部屋を適用して再起動** を押します。台車と腕が初期状態に戻り、作成した部屋がシミュレーションに反映されます。
+
+破線の円は機体の初期位置です。家具がこの領域に重なる配置は拒否されます。最初のマップ作成では、2D LiDARで観測できる壁などを配置してください。
+
+**机の上に物体を置く場合：** 机を選択 → **机の上を編集…** → ボトル・直方体・飲料缶を選択 → 天板をクリックして配置 → **机に反映** → 部屋を保存・適用します。ドラッグや数値指定で位置を調整でき、同じ種類を複数置けます。適用後は物体に重力と衝突が働きます。モード1・2の把持対象配置GUIは、モード3では使いません。
+
+| ボタン | 動作 |
+|---|---|
+| 新規 | 新しい部屋の編集を始める |
+| 環境を保存 | 編集中の部屋を名前付きでライブラリに保存 |
+| 編集用に開く | 保存した部屋を編集画面に読み込む。走行中の部屋は変えない |
+| この環境に切替 | 一覧で選んだ保存済みの部屋を適用し、機体を再起動 |
+| 部屋を適用して再起動 | 編集中の配置をシミュレーションへ反映 |
+| 環境を削除… | 確認後、ライブラリの保存版を削除。使用中の部屋・作成済みのNav2地図は保持 |
+| 書き出し／ファイル取込 | 部屋のJSONを受け渡す |
+
+**部屋の保存とNav2の地図保存は別です。** 部屋は家具・机上物体の配置、Nav2の地図は2D LiDARで観測した占有格子地図です。部屋を保存しただけでは走行用地図は作成されません。適用中の部屋と名前付きの保存版はコンテナ再作成後も残ります。
+
+<a id="mignon-controls"></a>
+### 台車と腕を操作
+
+シーンパネルの **台車の手動運転** で速度を選び、**ユーザー移動制御モード** をオンにします。緑色の操作欄にキーボードフォーカスがある間、次のキーを使えます。
+
+| キー | 動作 |
+|---|---|
+| W / S | 前進 / 後退 |
+| A / D | 左へ平行移動 / 右へ平行移動 |
+| Q / E | 左旋回 / 右旋回 |
+| Esc | 手動モードを解除 |
+
+前方は **UTM-30LX（2D LiDAR）がある側、車体座標の+X** です。移動キーを離すと減速して止まります。操作欄からフォーカスが外れた場合やチェックを外した場合も手動モードを解除します。
+
+| 手動速度 | 並進 | 旋回 |
+|---|---:|---:|
+| 低速 | 0.18 m/s | 0.5 rad/s |
+| 標準 | 0.40 m/s | 0.9 rad/s |
+| 高速 | 0.60 m/s | 1.2 rad/s |
+
+**Nav2や自作コードで走行させる前に手動モードを解除してください。** 手動モード中はキーを押していなくても手動指令が優先され、通常の `/cmd_vel` は受け付けません。解除後、最後の手動指令から約0.5秒で通常指令を受け付けます。速度選択は手動運転だけに適用され、Nav2の速度は設定ファイルで調整します。
+
+腕の姿勢を変えるときは台車を停止し、シーンパネルの **アーム姿勢（MoveIt 2・関節角度）** を使います。
+
+1. `right` または `left` を選び、**現在角を取得** を押します。
+2. J1〜J7を度単位で編集し、**計画して実行** を押します。
+3. 中断する場合は **中止** を押します。
+
+**初期姿勢を入力** は入力欄を0度にするボタンです。実際の移動には **計画して実行** が必要です。手先をドラッグする場合は、シミュレーション用RVizの[腕の操作手順](#gui)を使います。
+
+<a id="mignon-navigation"></a>
+### マップ作成からナビゲーション
+
+#### 1. マッピングの状態を確認する
+
+その部屋で保存地図をまだ選択していない場合は、**SLAM Toolboxによるマッピング** で起動します。シーンパネルの **地図作成・Nav2** の下に、`マッピング: 手動運転で走行し、地図を保存してください。` と表示されます。以前の選択は部屋の配置ごとに復元されます。
+
+壁などを配置した部屋を適用し、手動運転で周囲を観測します。センサー・運用用RVizの **Sensor map** に地図が広がることを確認してください。特徴のない空の部屋では地図作成が安定しない場合があります。
+
+**マッピングとNav2の未起動は区別してください。** この構成ではマッピング中もNav2を起動しますが、保存地図を使うAMCLは起動しません。`Localization` の表示だけでNav2の起動失敗とは判断しないでください。初めての利用では、以下の手順で地図を保存してから自律走行へ進むと状態を確認しやすくなります。
+
+#### 2. 地図を保存する
+
+1. 手動走行を停止します。
+2. **地図作成・Nav2** に地図名を入力します。例：`room_01`。
+3. **地図を保存** を押し、`地図を保存しました` と表示されるまで待ちます。
+
+地図名は1〜64文字の文字・数字・ハイフン・下線を使います。同じ部屋での同名保存は上書きされないため、再保存には別名を付けてください。
+
+#### 3. 保存地図で起動し、自己位置を確認する
+
+1. 地図名の一覧から使用する地図を選び、**保存地図で起動** を押します。
+2. 再起動の確認に進みます。機体は初期位置に戻り、地図サーバーとAMCLが起動します。未保存の作成途中の地図は失われます。
+3. パネルが `自己位置推定: <地図名>` になり、運用用RVizに保存地図が表示されることを確認します。
+4. 機体の表示位置や向きが地図と合わない場合は、RVizの **2D Pose Estimate** で正しい位置から向きに沿ってドラッグします。**UTM-30LX** のスキャンと地図上の壁が重なるか確認してください。
+
+地図操作は **Views → Map 2D** をダブルクリックすると行いやすくなります。**Robot 3D** で機体中心の3D視点へ戻せます。3D表示では **Move Camera** を選んで左ドラッグすると、周囲360°と上下の視点を変更できます。
+
+#### 4. Nav2で目的地へ移動する
+
+1. **ユーザー移動制御モードをオフ** にします。
+2. 運用用RVizの **Nav2 Goal** を選び、走行できる地図上の目的地から、到着時に向けたい方向へドラッグします。
+3. **Global plan** の経路と機体の移動を確認します。中断するときは **Navigation 2** パネルでキャンセルします。
+
+標準設定は最大0.40 m/s・0.9 rad/sです。自律走行では2D LiDAR側を前に向けて進み、横・後方への経路では必要に応じて先に旋回します。手動運転の左右平行移動とは動作が異なります。
+
+**新規マッピング** を押すと、確認と再起動を経て地図作成へ戻ります。保存済みの地図は保持されます。家具配置を変えた場合は、その配置に対応する地図を新しく作成してください。地図の一覧には現在の部屋に対応したものが表示されます。机上の小物だけの変更では同じ地図を使用できます。
+
+<a id="mignon-sensors"></a>
+### カメラ・3D LiDARを表示
+
+| センサー | 開始方法 | 運用用RVizでの表示 |
+|---|---|---|
+| UTM-30LX相当の2D LiDAR | モード3の起動時に配信 | **UTM-30LX**。`/scan` がSLAM・Nav2への観測入力 |
+| 胸部D435i・台車D455・左右手内RGB | **カメラ配信 → 配信開始** | RGB-D点群は **Chest D435i RGB-D** / **Chassis D455 RGB-D** を有効化。画像は **Add → Image** でトピックを選択 |
+| MID-360S 3D LiDAR（任意） | **MID-360S 点群 → 配信開始** | **MID-360S 3D LiDAR**。未装着なら自動で取り付け・再起動後に配信 |
+
+カメラは初期OFF・既定2 fpsです。胸部と台車の点群は購読されると生成されます。手内カメラはRGBのみで、D435iのIMUデータは再現していません。
+
+MID-360Sは通常起動時に未装着です。**配信停止** は点群の停止、**取り外す** は筐体・ブラケットの取り外しと再起動です。運用用RVizでは `/lidar/points` を直近1秒分表示し、**Displays → MID-360S 3D LiDAR → Decay Time** で表示の蓄積時間を変更できます（0で最新の1回分）。**点群密度** はシーンパネルから変更できます。
+
+**現在のNav2設定は2D LiDARの `/scan` を使用します。** 3D LiDARやカメラの点群を表示しただけでは、Nav2の障害物入力には追加されません。センサー用RVizに部屋の家具メッシュが表示されないのも想定どおりで、観測できたスキャン・点群・地図で形状を確認します。
+
+<a id="mignon-development"></a>
+### VS Codeで開発・パラメーター調整
+
+シミュレーション起動後、**ホストUbuntuの端末**で実行します。
+
+```bash
+oa-code
+```
+
+VS Codeがコンテナ内の一般ユーザーに接続し、`/workspaces/OpenArm_dev` を開きます。ターミナルだけを使う場合は、ホストで次を実行します。
+
+```bash
+oa
+```
+
+```text
+/workspaces/OpenArm_dev/
+├── external_ws/src/urg_node/       実機UTM-30LX用の既製ドライバー
+├── happy_ws/src/main/
+│   ├── happy_robot/               状態確認ノード
+│   ├── happy_posture/             MoveIt 2による腕の姿勢制御
+│   ├── openarm_demos/             OpenArmデモのソース
+│   └── <各自のROS 2パッケージ>/    音声・認識・制御など
+├── rooms/                        保存した部屋と適用中の配置
+├── navigation/                   SLAM・Nav2設定と保存地図
+└── recordings/                   GUIから保存した記録
+```
+
+シミュレーションでは `/scan` をMuJoCoが生成するため、実機用の `urg_node` を重ねて起動する必要はありません。自作パッケージは **`happy_ws/src/main/各自のパッケージ`** に作成またはクローンします。デモは腕単体向けのものも含むため、モード3の任意の部屋での把持成功を保証するものではありません。
+
+**実行場所：`oa` またはVS Codeのコンテナ内ターミナル。** 新規・変更したパッケージをビルドし、その端末に反映します。
+
+```bash
+cd /workspaces/OpenArm_dev/happy_ws
+colcon build --symlink-install
+source install/setup.bash
+```
+
+状態確認（台車や腕を動かしません）：
+
+```bash
+ros2 run happy_robot robot_status
+```
+
+腕・オドメトリ・レーザーを受信すると `Received: arm, odom, scan` と表示されます。`external_ws` にパッケージを追加した場合は、先にそのワークスペースでビルド・sourceを行ってから `happy_ws` をビルドしてください。
+
+| 編集・保存先（コンテナ内） | 内容 |
+|---|---|
+| `/workspaces/OpenArm_dev/navigation/nav2.yaml` | Nav2の速度、制御、AMCL、コストマップ等 |
+| `/workspaces/OpenArm_dev/navigation/slam.yaml` | SLAM Toolboxの地図解像度・更新条件等 |
+| `/workspaces/OpenArm_dev/navigation/by_room/<配置ID>/maps/<地図名>/` | `map.yaml` と地図画像。古い構成では `navigation/maps/` |
+| `/workspaces/OpenArm_sim/` | 配布リポジトリ本体。Dockerやシミュレーション基盤のソース |
+
+Nav2・SLAMの設定変更は保存後にシーンパネルの **シミュレーションを再起動** で反映します。台車と腕は初期状態へ戻るため、作成中の地図は先に保存してください。通常の自作ROSパッケージはワークスペースでビルドし、`docker/app/` などイメージ内の環境本体を変更した場合はホストでモード3を再起動して再ビルドします。
+
+```bash
+bash start.sh --robot-version 3 --rebuild
+```
+
+開発ファイルと設定の実体は、**ホストのリポジトリ配下 `.openarm/happy_robot_pc/`** に保存されます。コンテナの再作成で消えませんが、配布リポジトリへのpushで自動共有される場所ではありません。チームのコードは各自のGitで管理し、部屋と地図を移すときは `rooms/` と `navigation/` を一緒にコピーしてください。
+
+Nav2の初期設定では機体の平面形状を半径0.30 mの円で近似しています。**腕を伸ばした形状を自動でナビゲーションの占有範囲に反映する設定ではありません。** 運用する姿勢に合わせてコストマップの形状や余裕を調整してください。
+
+<a id="mignon-ros"></a>
+### 主なROS 2インターフェース
+
+| 名前 | 種類・型 | 用途 |
+|---|---|---|
+| `/cmd_vel` | Topic / `geometry_msgs/msg/Twist` | 通常の台車指令。`linear.x` 前後、`linear.y` 左右（m/s）、`angular.z` 旋回（rad/s） |
+| `/happy/manual_cmd_vel` | Topic / `geometry_msgs/msg/Twist` | GUIの優先手動指令 |
+| `/odom` | Topic / `nav_msgs/msg/Odometry` | シミュレーションの車体姿勢・速度 |
+| `/scan` | Topic / `sensor_msgs/msg/LaserScan` | UTM-30LX相当。`laser` フレーム、270°、1081点 |
+| `/map` | Topic / `nav_msgs/msg/OccupancyGrid` | SLAMまたは地図サーバーの2D地図 |
+| `/plan` | Topic / `nav_msgs/msg/Path` | Nav2の大域経路 |
+| `/initialpose` | Topic / `geometry_msgs/msg/PoseWithCovarianceStamped` | 保存地図で使用するAMCLの初期姿勢 |
+| `/navigate_to_pose` | Action / `nav2_msgs/action/NavigateToPose` | Nav2への目的地指示・結果・キャンセル |
+| `/joint_states` | Topic / `sensor_msgs/msg/JointState` | 腕・グリッパー等の関節状態 |
+| `/right_arm_controller/follow_joint_trajectory`、`/left_arm_controller/follow_joint_trajectory` | Action / `control_msgs/action/FollowJointTrajectory` | 左右の腕の軌道実行。関節名は[関節一覧](#motor-api)を参照 |
+| `/right_gripper_controller/follow_joint_trajectory`、`/left_gripper_controller/follow_joint_trajectory` | Action / `control_msgs/action/FollowJointTrajectory` | 左右グリッパーの軌道実行 |
+| `/lidar/points` | Topic / `sensor_msgs/msg/PointCloud2` | MID-360Sの3D点群 |
+| `/openarm/camera/set_enabled` | Service / `std_srvs/srv/SetBool` | カメラ配信の一括ON/OFF |
+| `/openarm/camera/status` | Service / `std_srvs/srv/Trigger` | カメラの配信状態・エラーを取得 |
+| `/openarm/lidar/set_enabled` | Service / `std_srvs/srv/SetBool` | **装着済み**LiDARの配信ON/OFF。未装着からの取り付けにはGUIの配信開始を使用 |
+| `/openarm/lidar/status` | Service / `std_srvs/srv/Trigger` | LiDARの装着・配信状態・エラーを取得 |
+| `/clock`、`/tf`、`/tf_static` | Topic / シミュレーション時刻・座標変換 | 自作ノードは必要に応じて `use_sim_time:=true` を指定。走行時のTFは `map → odom → base_link` |
+
+胸部は **`/camera/d435i`**、台車は **`/camera/d455`** を先頭に付けます。例：胸部RGB画像は `/camera/d435i/color/image_raw` です。
+
+| 末尾 | 型 | 内容 |
+|---|---|---|
+| `/color/image_raw` | `sensor_msgs/msg/Image` | RGB画像（`rgb8`） |
+| `/depth/image_rect_raw` | `sensor_msgs/msg/Image` | 深度（`16UC1`、mm、無効値0） |
+| `/aligned_depth_to_color/image_raw` | `sensor_msgs/msg/Image` | RGB視点に整列した深度 |
+| `/color/camera_info`、`/depth/camera_info`、`/aligned_depth_to_color/camera_info` | `sensor_msgs/msg/CameraInfo` | 対応する画像の内部パラメーター |
+| `/depth/color/points` | `sensor_msgs/msg/PointCloud2` | 色付きXYZRGB点群（m、無効点NaN） |
+
+左右手内のRGBは `/camera/left_wrist/color/image_raw` と `/camera/right_wrist/color/image_raw`、対応する内部パラメーターはそれぞれ末尾の `image_raw` を `camera_info` に置き換えたトピックです。センサーデータを購読する自作ノードでは、Best Effortに対応するSensor Data QoSを使用してください。
+
+<a id="mignon-help"></a>
+### 困ったときの確認
+
+| 症状 | 確認すること |
+|---|---|
+| 地図がない／Localizationが準備できていない | パネルがマッピング中か自己位置推定中かを確認。マッピングなら壁を観測して地図を保存し、保存地図で起動する |
+| 目標を指定しても進まない | 手動モードを解除し、機体位置と地図・スキャンの一致、目標位置の障害物、Navigation 2の状態を確認 |
+| 点群が表示されない | 配信ONとDisplaysのチェックを確認。`map` のTFがまだなければFixed Frameを一時的に `odom` にして観測を確認。Nav2の位置・目標指定時は `map` に戻す |
+| 家具を編集したのに変わらない | 保存だけでなく **部屋を適用して再起動** を行う |
+| 保存した地図が一覧にない | 現在の家具配置に対応した地図か確認。別の部屋の地図は一覧から除かれる |
+| キー操作が効かない | 手動モードがONで緑色の操作欄にフォーカスがあるか確認 |
+
+**ホストUbuntu**から状態を確認するコマンドです。
+
+```bash
+oa-ros run happy_robot robot_status
+```
+
+```bash
+oa-ros lifecycle get /controller_server
+oa-ros lifecycle get /planner_server
+oa-ros action list -t
+```
+
+Nav2の各サーバーは `active` が動作中の状態です。アクション一覧に `/navigate_to_pose` があることだけで、目的地へ移動できるとは限りません。地図・TF・自己位置も合わせて確認します。
+
+ログを見る場合（ホストのリポジトリ内。Ctrl+Cでログ表示だけを終了）：
+
+```bash
+bash start.sh --logs
+```
+
+終了する場合：
+
+```bash
+bash start.sh --stop
+```
+
+GUIの **rosbag2記録** は既定の関節・TF・胸部画像などの記録です。`/scan`・`/odom`・D455・3D LiDAR・走行指令を含むモード3全体の記録ではありません。詳細は[記録機能](#gui-recording)と[ロボットPCの詳細](docker/mobile/ROBOT_PC.md)を参照してください。
 
 <a id="gui"></a>
 ## GUIで操作する
@@ -241,9 +530,11 @@ oa-logs
 <a id="development"></a>
 ## VS Codeで開発する
 
+**以下の配置・ビルド手順は腕単体のモード1・2向けです。モード3は[Happy mignonの開発手順](#mignon-development)を使用してください。**
+
 ### 1. コンテナへ接続する
 
-**ホストUbuntu**で実行します。VS Code本体はあらかじめ導入してください。Dev Containers拡張は必要に応じて導入されます。
+**ホストUbuntu**で実行します。VS Code本体とDev Containers拡張は、通常の起動スクリプトが必要に応じて導入します。
 
 ```bash
 oa-code
@@ -467,6 +758,12 @@ OpenArm 2.0を指定する：
 /usr/bin/bash start.sh --robot-version 2
 ```
 
+Happy mignon（OpenArm 2.0＋台車）を指定する：
+
+```bash
+/usr/bin/bash start.sh --robot-version 3
+```
+
 モデル変更時は現在のシミュレーションを終了し、選んだモデルで再起動します。対話入力できない場合の既定モデルは1.0です。
 
 GUIなしで起動する：
@@ -508,7 +805,7 @@ Desktop / Serverというインストール名ではなく、接続可能なGUI�
 
 必要なホストパッケージとローカルイメージが揃っていれば起動します。不足していれば理由を表示し、既存コンテナを停止・置き換えする前に終了します。
 
-オフラインでは未ビルドのソース変更は反映されません。オフラインと再ビルドの同時指定はできません。両モデルは同じイメージに含まれるため、ビルド済みならオフラインでも選択できます。
+オフラインでは未ビルドのソース変更は反映されません。オフラインと再ビルドの同時指定はできません。モード1・2は同じOpenArmイメージに含まれます。モード3は専用のHappy mignonイメージを使用するため、オフラインで使うモードの初回起動・ビルドをオンライン時に完了させておいてください。
 
 </details>
 
@@ -1312,6 +1609,7 @@ MoveItの応答停止中は同期が回復を待ちます。必要に応じて�
 OPL衣類は従来どおり個別の剛体近似です。試験方法は [プリセット検証](tests/PRESETS.md) を参照してください。
 
 
+<a id="gui-recording"></a>
 ## GUIから状態・RGBD・TFを記録する
 
 シーンGUIの「rosbag2記録」で新しい名前を入力し、**記録開始**を押します。
